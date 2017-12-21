@@ -677,6 +677,46 @@
 ** Change that if you do not want to use C locales. (Code using this
 ** macro must include header 'locale.h'.)
 */
+// lua_getlocaledecpoint得到本地的小数点号
+// 如果你不想在C环境里就改变他（一定要包含'localle.h'头文件代码才能起作用）
+
+// localeconv：返回当前地域的设置信息
+    // struct lconv *localeconv( void )
+    // localeconv返回lconv结构体的指针
+    /*struct lconv {
+    	//数字（非币值）信息
+		char *decimal_point;			//数字的小数点号
+		char *thousands_sep;			//数字的千分组分隔符
+		char *grouping;					//数字分组分隔符
+		//货币信息  
+		char *int_curr_symbol;			
+		char *currency_symbol;			//本地货币符号
+		char *mon_decimal_point;		//货币的小数点号
+		char *mon_thousands_sep;		//倾向的千分组分隔符
+		char *mon_grouping;				//类似于grouping元素（参考上面）
+		char *positive_sign;			//正币值的符号
+		char *negative_sign;			//负币值的符号
+		char int_frac_digits;			//国际币值的小数部分
+		char frac_digits;				//本地币值的小数部分
+		如果currency_symbol放在正币值之前则为1，否则为0
+		char p_cs_precedes;
+		当且仅当currency_symbol与正币值之间用空格分开时为1
+		char p_sep_by_space;
+		如果currency_symbol放在负币值之前则为1，否则为0
+		char n_cs_precedes;
+		当且仅当currency_symbol与负币值之间用空格分开时为1
+		char n_sep_by_space;
+		正值和负值符号的定位：  
+	    // 0 用圆括号括住数量和currency_symbol  
+	    // 1 正负号放在数量和currency_symbol之前  
+	    // 2 正负号放在数量和currency_symbol之后  
+	    // 3 正负号正好放在currency_symbol之前  
+	    // 4 正负号正好放在currency_symbol之后
+		char p_sign_posn;
+		char n_sign_posn;
+	};*/
+// 上面的内容都摘自网络
+
 #if !defined(lua_getlocaledecpoint)
 #define lua_getlocaledecpoint()		(localeconv()->decimal_point[0])
 #endif

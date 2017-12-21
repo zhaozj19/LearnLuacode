@@ -38,7 +38,9 @@ LUAI_DDEF const TValue luaO_nilobject_ = {NILCONSTANT};
 ** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if
 ** eeeee != 0 and (xxx) otherwise.
 */
-// 使用浮点数的方法扩充整数范围
+// 使用浮点数的方法扩充整数范围（0 ~ 15 * 2^30）
+// e代表指数
+// 如果传进来的x没有超出三位尾数的范围那么就直接返回
 int luaO_int2fb (unsigned int x) {
   int e = 0;  /* exponent */
   if (x < 8) return x;
@@ -86,6 +88,21 @@ int luaO_ceillog2 (unsigned int x) {
 }
 
 
+// 两个整数之间的运算
+// op是传进来的操作码，定义在lua.h中，LUA_OPADD是0，LUA_OPBNOT是13
+// intop和luaV_mod等算术操作定义在lvm.h中，都是基于堆栈的算术操作，到那里再具体分析
+// LUA_OPADD：加法操作
+// LUA_OPSUB：减法操作
+// LUA_OPMUL：乘法操作
+// LUA_OPMOD：取摸操作
+// LUA_OPIDIV：向下取整的除法操作
+// LUA_OPBAND：按位与操作
+// LUA_OPBOR：按位或操作
+// LUA_OPBXOR：按位异或操作
+// LUA_OPSHL：左移操作
+// LUA_OPSHR：右移操作
+// LUA_OPUNM：取负操作（就是沿用的减法操作，第一个操作数为0）
+// LUA_OPBNOT：按位取反操作
 static lua_Integer intarith (lua_State *L, int op, lua_Integer v1,
                                                    lua_Integer v2) {
   switch (op) {
@@ -105,7 +122,16 @@ static lua_Integer intarith (lua_State *L, int op, lua_Integer v1,
   }
 }
 
-
+// 两个number之间的运算
+// luai_numadd等方法定义在llimits.h中，内部操作依靠+-*等操作，取摸等复杂操作则调用C函数
+// LUA_OPADD：加法操作
+// LUA_OPSUB：减法操作
+// LUA_OPMUL：乘法操作
+// LUA_OPDIV：普通的除法操作
+// LUA_OPPOW：幂操作
+// LUA_OPIDIV：向下取整的除法操作
+// LUA_OPUNM：取负操作
+// LUA_OPMOD：取摸操作
 static lua_Number numarith (lua_State *L, int op, lua_Number v1,
                                                   lua_Number v2) {
   switch (op) {
@@ -125,7 +151,8 @@ static lua_Number numarith (lua_State *L, int op, lua_Number v1,
   }
 }
 
-
+// 两个TValue的算术运算
+// 具体做法是先把TValue的具体值取出来然后再调用上面的两种类型函数进行操作
 void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2,
                  TValue *res) {
   switch (op) {
@@ -165,13 +192,18 @@ void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2,
   luaT_trybinTM(L, p1, p2, res, cast(TMS, (op - LUA_OPADD) + TM_ADD));
 }
 
-
+// lisdigit检查参数是否为十进制数字字符，当c为数字0~9时，返回非零值，否则返回零
+// 如果c是十进制字符的话，就返回具体的数字
+// 如果不是的话，ltolower就把字符转成小写字符之后，再减去'a'得到数字，加上10，就等于说16进制的字符变成了数字
+// 总的来说，luaO_hexavalue的作用就是把能转变成数字的字符变成数字并返回
 int luaO_hexavalue (int c) {
   if (lisdigit(c)) return c - '0';
   else return (ltolower(c) - 'a') + 10;
 }
 
 
+// 获取*s指向的字符是'+'还是'-'
+// 1代表负,0代表正,并且s向前移一位
 static int isneg (const char **s) {
   if (**s == '-') { (*s)++; return 1; }
   else if (**s == '+') (*s)++;
@@ -196,6 +228,19 @@ static int isneg (const char **s) {
 ** convert an hexadecimal numeric string to a number, following
 ** C99 specification for 'strtod'
 */
+// 将十六进制数字串转换成数字，下面是关于'strtod'的C99规范
+
+// lua_getlocaledecpoint得到本地的小数点号(ascii表示'.'为46)
+// lisspace主要用于检查参数是否为空格字符,若参数c为空格字符，则返回TRUE，否则返回NULL(0)
+// 首先s跳过前面的空格,然后neg得到*s的符号,1代表负,0代表正
+// 然后检测开头的两位字符是不是"0x"或"0X",不然的话就不是16进制,直接返回0
+// 在循环里面刚开始遇见第一个点就把hasdot赋值1,如果第二次再碰见点的话就跳出循环
+// lisxdigit检查参数是否为16进制数字,如果是的话返回非0值,不然返回0.参数类型为int,但是可以直接将char 类型数据传入.
+// sigdig代表有意义数字的数量,nosigdig代表没有意义数字的数量(没有意义的就是字符串开头的0,中间的不算)
+// luaO_hexavalue把参数转换成十进制数字
+// 重要的操作是r * cast_num(16.0) 把之前的结果乘以16,就代表16进制往左移了一位,然后再加上新的数
+// 然后超出MAXSIGDIG限制的字符会被计入e,然后小数点后面如果有字符的话会抵消一部分e
+// endptr是有效字符的下一位
 static lua_Number lua_strx2number (const char *s, char **endptr) {
   int dot = lua_getlocaledecpoint();
   lua_Number r = 0.0;  /* result (accumulator) */
