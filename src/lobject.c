@@ -299,6 +299,9 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
 #define L_MAXLENNUM	200
 #endif
 
+
+// lua_strx2number把一个十六进制字符转成数字
+// lua_str2number把一个普通字符转成数字
 static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
   char *endptr;
   *result = (mode == 'x') ? lua_strx2number(s, &endptr)  /* try to convert */
@@ -322,6 +325,15 @@ static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
 ** to a buffer (because 's' is read-only), changes the dot to the
 ** current locale radix mark, and tries to convert again.
 */
+// 把字符串s转换成number数据，在失败时返回NULL或在成功时返回字符串最后一位的地址（就是'\0'的地址）
+// strpbrk（const char *s1, const char *s2）是在源字符串（s1）中找出最先含有搜索字符串（s2）中任一字符的位置并返回，若找不到则返回空指针。
+// pmode指向字符串中特殊的字符（'.','x','X','n','N'）
+// 'x'/'X'意味着十六进制字符
+// 'n'/'N'意味着无穷大或未定义(它们被直接返回)
+// 该函数接受当前区域设置或点作为基数标记。如果转换失败,那可能意味着数字是一个点并且本地也接受了其他别的东西
+// 在这种情况下,代码拷贝了一个s来指向一段缓冲区(因为s是只读的),将点更改为当前区域设置的基数，并尝试再次转换。
+
+
 static const char *l_str2d (const char *s, lua_Number *result) {
   const char *endptr;
   const char *pmode = strpbrk(s, ".xXnN");
