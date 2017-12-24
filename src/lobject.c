@@ -359,6 +359,13 @@ static const char *l_str2d (const char *s, lua_Number *result) {
 #define MAXBY10		cast(lua_Unsigned, LUA_MAXINTEGER / 10)
 #define MAXLASTD	cast_int(LUA_MAXINTEGER % 10)
 
+
+// 把字符串转换为int，结果保存在result中
+// 通过lisspace跳过开头的空格字符
+// 然后isneg获取正负号，1代表负,0代表正,并且s向前移一位
+// 然后判断是不是十六进制，是的话跳过'0x'，然后lisxdigit检查参数是否为16进制数字,如果是的话返回非0值,不然返回0.参数类型为int,但是可以直接将char 类型数据传入.
+// 然后将结果*16并加上新得的数字，luaO_hexavalue的作用就是把能转变成数字的字符变成数字并返回
+// 10进制的话，原理一样，但是多了一个溢出检测，机制就是判断a是不是大于LUA_MAXINTEGER / 10，因为下一步要进行a*10
 static const char *l_str2int (const char *s, lua_Integer *result) {
   lua_Unsigned a = 0;
   int empty = 1;
@@ -390,7 +397,11 @@ static const char *l_str2int (const char *s, lua_Integer *result) {
   }
 }
 
-
+// 把一个字符串转换成数字
+// 首先调用l_str2int看能不能转换成int，可以的话调用setivalue创建一个类型为LUA_TNUMINT的int
+// 不行的话调用setfltvalue看能不能转换成float类型的数据,可以的话调用setfltvalue创建一个类型为LUA_TNUMFLT的float
+// 还是不行的就返回0，代表转换失败
+// 成功的话返回字符串的长度
 size_t luaO_str2num (const char *s, TValue *o) {
   lua_Integer i; lua_Number n;
   const char *e;
@@ -405,7 +416,13 @@ size_t luaO_str2num (const char *s, TValue *o) {
   return (e - s) + 1;  /* success; return string size */
 }
 
-
+// 返回x的utf8字节数量
+// x <= 0x10FFFF，这里x不能超过unicode的最大编码
+// x < 0x80属于ascii编码，buff的最后一位保存x，并且返回字节数1
+// 0x80等于十进制的128
+// 如果不属于ascii范围的话，就需要延长字节
+// 首先定义一个mfb，因为ascii的范围为0x00 - 0x7f
+// 大于ascii的范围之后就需要扩充字节了
 int luaO_utf8esc (char *buff, unsigned long x) {
   int n = 1;  /* number of bytes put in buffer (backwards) */
   lua_assert(x <= 0x10FFFF);
