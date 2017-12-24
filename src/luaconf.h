@@ -408,6 +408,8 @@
 ** This macro is not on by default even in compatibility mode,
 ** because this is not really an incompatibility.
 */
+// 这个宏的作用是在int转换成string之后在string后面加上.0的
+// 默认是关的
 /* #define LUA_COMPAT_FLOATSTRING */
 
 /* }================================================================== */
@@ -441,6 +443,13 @@
 
 #define l_floor(x)		(l_mathop(floor)(x))
 
+
+// s是目标字符串
+// sz是需要复制的长度
+// n是传进来的number值
+// 然后再调用l_sprintf进行转换，这里需要注意的是LUA_NUMBER_FMT这个参数，意思是按照这种格式来转换
+// 比如说："%.14g"、"%g"、"%.19Lg"等，
+// %g用于打印浮点型数据时，会去掉多余的零，至多保留六位有效数字
 #define lua_number2str(s,sz,n)  \
 	l_sprintf((s), sz, LUA_NUMBER_FMT, (LUAI_UACNUMBER)(n))
 
@@ -535,6 +544,12 @@
 
 #define LUAI_UACINT		LUA_INTEGER
 
+
+// s是目标字符串
+// sz是需要复制的长度
+// n是传进来的int值
+// 然后再调用l_sprintf进行转换，这里需要注意的是LUA_INTEGER_FMT这个参数，意思是按照这种格式来转换
+// 比如说："%d"、"%012d"、"%ld"等，
 #define lua_integer2str(s,sz,n)  \
 	l_sprintf((s), sz, LUA_INTEGER_FMT, (LUAI_UACINT)(n))
 
@@ -610,6 +625,10 @@
 @@ l_sprintf is equivalent to 'snprintf' or 'sprintf' in C89.
 ** (All uses in Lua have only one format item.)
 */
+// snprintf()，为函数原型int snprintf(char *str, size_t size, const char *format, ...)
+// 将可变个参数(...)按照format格式化成字符串，然后将其复制到str中
+// snprintf的返回值是，成功的话返回欲写入字符串长度，如出错则返回负值
+// 与snpritf的返回值不同的是，sprintf的返回值是成功写入的字符串长度
 #if !defined(LUA_USE_C89)
 #define l_sprintf(s,sz,f,i)	snprintf(s,sz,f,i)
 #else

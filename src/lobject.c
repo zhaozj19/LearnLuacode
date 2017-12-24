@@ -431,6 +431,17 @@ int luaO_utf8esc (char *buff, unsigned long x) {
 /*
 ** Convert a number object to a string
 */
+// 把一个数字对象转换成字符串
+// lua_integer2str的作用就是把一个整数转换成字符串，定义在luaconf.h中
+// lua_number2str的作用就是把一个浮点型数据转换成字符串，定义在luaconf.h中
+
+// strspn的原型为：size_t strspn (const char *s,const char * accept)
+// strspn()从参数s 字符串的开头计算连续的字符，而这些字符都完全是accept 所指字符串中的字符。
+// 简单的说，若strspn()返回的数值为n，则代表字符串s 开头连续有n 个字符都是属于字符串accept内的字符。
+// 所以这里通过strspn判断是不是转换成了int值
+// 如果定义了LUA_COMPAT_FLOATSTRING则在字符串结尾加上0（定义在luaconf.h中）
+// lua_getlocaledecpoint()返回当地的小数点
+// 然后调用setsvalue2s创建一个LUA_TSTRING类型的TValue压入栈中
 void luaO_tostring (lua_State *L, StkId obj) {
   char buff[MAXNUMBER2STR];
   size_t len;
@@ -460,6 +471,8 @@ static void pushstr (lua_State *L, const char *str, size_t l) {
 ** this function handles only '%d', '%c', '%f', '%p', and '%s'
    conventional formats, plus Lua-specific '%I' and '%U'
 */
+// 这个函数仅支持'%d', '%c', '%f', '%p', and '%s'转换格式，外加lua的'%I' and '%U'
+// strchr作用是找出fmt中首次出现'%'的位置，并返回其指针
 const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   int n = 0;
   for (;;) {
