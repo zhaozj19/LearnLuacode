@@ -423,6 +423,7 @@ size_t luaO_str2num (const char *s, TValue *o) {
 // 如果不属于ascii范围的话，就需要延长字节
 // 首先定义一个mfb，因为ascii的范围为0x00 - 0x7f
 // 大于ascii的范围之后就需要扩充字节了
+// else部分不太明白
 int luaO_utf8esc (char *buff, unsigned long x) {
   int n = 1;  /* number of bytes put in buffer (backwards) */
   lua_assert(x <= 0x10FFFF);
@@ -477,7 +478,9 @@ void luaO_tostring (lua_State *L, StkId obj) {
   setsvalue2s(L, obj, luaS_newlstr(L, buff, len));
 }
 
-
+// 创建一个字符串，让L->top指向该字符串
+// luaS_newlstr创建一个字符串，到lstring.c中再分析
+// 然后调用luaD_inctop，让栈顶指针自增1
 static void pushstr (lua_State *L, const char *str, size_t l) {
   setsvalue2s(L, L->top, luaS_newlstr(L, str, l));
   luaD_inctop(L);
@@ -488,8 +491,21 @@ static void pushstr (lua_State *L, const char *str, size_t l) {
 ** this function handles only '%d', '%c', '%f', '%p', and '%s'
    conventional formats, plus Lua-specific '%I' and '%U'
 */
+
+// luaO_pushfstring(L, "%s:%d: %s", buff, line, msg)
+
+// luaO_pushvfstring的作用是把luaO_pushfstring传进来的可变参数中的值，一个一个的加入lua栈中
 // 这个函数仅支持'%d', '%c', '%f', '%p', and '%s'转换格式，外加lua的'%I' and '%U'
 // strchr作用是找出fmt中首次出现'%'的位置，并返回其指针
+// 首先，e的位置就是%的位置，然后调用pushstr向栈中=顶压入一个字符串，并栈顶自增1
+// 下面就是不同格式的参数压入规则了
+// 如果是's'的话，代表以'\0'结尾的字符串，通过va_arg返回可变的参数，va_arg的第二个参数是你要返回的参数的类型
+// 如果是'c'的话，代表以int作为的字符，然后lisprint判断是否为可打印字符，是的话直接入栈，不然就（这个地方我还不知道）
+// 如果是'd'的话，就代表是一个int，直接入栈，然后把这个int转换成字符串
+// 如果是'I'的话，就代表lua里面的lua_Integer，也是直接入栈，然后把这个lua_Integer转换成字符串
+// 如果是'f'的话，就代表是一个lua_Number，执行流程和lua_Integer一样
+// 如果是'p'的话，就代表是一个指针，把argp中的void *类型的参数按照%p的格式转换进buff中，然后返回装入buff中的size，然后入栈
+// 如果是'U'的话，就代表一个UTF-8序列，计算出序列的字节数，然后入栈
 const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   int n = 0;
   for (;;) {
@@ -556,7 +572,12 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   return svalue(L->top - 1);
 }
 
+// luaO_pushfstring的作用是把一个字符串按照固定格式压入L栈中，比如说：
+// luaO_pushfstring(L, "%s:%d: %s", buff, line, msg)   把一个调试信息格式的打印日志压入L栈中
 
+// va_list,va_start,va_end 这些宏定义在stdarg.h中
+// va_list定义了一个可变参数argp
+// va_start初始化了argp，第一个参数是argp，第二个参数是fmt（可变参数的前一个参数）
 const char *luaO_pushfstring (lua_State *L, const char *fmt, ...) {
   const char *msg;
   va_list argp;
@@ -576,6 +597,7 @@ const char *luaO_pushfstring (lua_State *L, const char *fmt, ...) {
 
 #define addstr(a,b,l)	( memcpy(a,b,(l) * sizeof(char)), a += (l) )
 
+// 看完debug的相关调用后，再回来分析
 void luaO_chunkid (char *out, const char *source, size_t bufflen) {
   size_t l = strlen(source);
   if (*source == '=') {  /* 'literal' source */
