@@ -37,6 +37,15 @@
 /*
 ** equality for long strings
 */
+// 比较长字符串a和b是否相等
+// 首先检查a和b的类型是否相等
+// 然后检查a和b是否指向同一对象
+// 然后比较长度是否相等，最后调用memcmp来比较内存内容
+// memcmp是比较内存区域buf1和buf2的前count个字节。该函数是按字节比较的。
+// int memcmp(const void *buf1, const void *buf2, unsigned int count);
+// 当buf1<buf2时，返回值小于0
+// 当buf1==buf2时，返回值=0
+// 当buf1>buf2时，返回值大于0
 int luaS_eqlngstr (TString *a, TString *b) {
   size_t len = a->u.lnglen;
   lua_assert(a->tt == LUA_TLNGSTR && b->tt == LUA_TLNGSTR);
@@ -45,7 +54,12 @@ int luaS_eqlngstr (TString *a, TString *b) {
      (memcmp(getstr(a), getstr(b), len) == 0));  /* equal contents */
 }
 
-
+// 计算字符串的哈希值
+// 对于长度小于2^LUAI_HASHLIMIT的字符串，每一个字节都会参加hash计算，长度大于等于32的字符串，从末尾开始，每(1 >> LUAI_HASHLIMIT) + 1位参与hash计算
+// str是待计算hash的字符串，s是字符串的长度，seed是哈希算法随机种子
+// 此处的随机种子是在创建虚拟机的global_State(全局状态机)时构造并存储在global_State中的
+// 此处需要注意一下setp的计算
+// 首先把把l向右移动5位，然后加1，这样就使长度小于32的字符串的步长变为了1
 unsigned int luaS_hash (const char *str, size_t l, unsigned int seed) {
   unsigned int h = seed ^ cast(unsigned int, l);
   size_t step = (l >> LUAI_HASHLIMIT) + 1;
@@ -55,6 +69,10 @@ unsigned int luaS_hash (const char *str, size_t l, unsigned int seed) {
 }
 
 
+// 计算长字符串的哈希值
+// 首先判断是不是长字符串,然后判断是否hash过(这里是根据extra字段,extra为1的话,不需要再进行hash操作,短字符串默认就是1)
+// 然后再调用上面计算哈希值的函数就可以了,这里传递的hash字段是字符串在创建的时候从global_State拿到的哈希随机种子
+// 然后extra置为1
 unsigned int luaS_hashlongstr (TString *ts) {
   lua_assert(ts->tt == LUA_TLNGSTR);
   if (ts->extra == 0) {  /* no hash? */
@@ -216,6 +234,9 @@ TString *luaS_newlstr (lua_State *L, const char *str, size_t l) {
 ** only zero-terminated strings, so it is safe to use 'strcmp' to
 ** check hits.
 */
+// 创建或重用一个以'\0'结尾的字符串，首先检查缓存(使用字符串的地址做为key来获取字符串)
+// 这个缓存能够包含以'\0'结尾的字符串，因此使用'strcmp'来检查是否命中是安全的
+
 TString *luaS_new (lua_State *L, const char *str) {
   unsigned int i = point2uint(str) % STRCACHE_N;  /* hash */
   int j;

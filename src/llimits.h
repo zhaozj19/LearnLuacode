@@ -197,6 +197,7 @@ typedef unsigned long Instruction;
 ** sets (better be a prime) and "M" is the size of each set (M == 1
 ** makes a direct cache.)
 */
+// 字符串缓存的长度。
 #if !defined(STRCACHE_N)
 #define STRCACHE_N		53
 #define STRCACHE_M		2
