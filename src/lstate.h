@@ -54,7 +54,7 @@ struct lua_longjmp;  /* defined in ldo.c */
 #define KGC_NORMAL	0
 #define KGC_EMERGENCY	1	/* gc was forced by an allocation failure */
 
-// 所有短字符串均被存放在全局表（global_State）的 strt 域中。strt 是 string table 的简写，它是一个
+// 所有字符串均被存放在全局表（global_State）的 strt 域中。strt 是 string table 的简写，它是一个
 // 哈希表
 typedef struct stringtable {
   TString **hash;

@@ -36,9 +36,11 @@ typedef unsigned char lu_byte;
 
 
 /* maximum value for size_t */
+// MAX_SIZET就是-1(1111 1111)
 #define MAX_SIZET	((size_t)(~(size_t)0))
 
 /* maximum size visible for Lua (must be representable in a lua_Integer */
+
 #define MAX_SIZE	(sizeof(size_t) < sizeof(lua_Integer) ? MAX_SIZET \
                           : (size_t)(LUA_MAXINTEGER))
 
@@ -197,7 +199,7 @@ typedef unsigned long Instruction;
 ** sets (better be a prime) and "M" is the size of each set (M == 1
 ** makes a direct cache.)
 */
-// 字符串缓存的长度。
+// lua里面的字符串是存储在global_State的strt成员里面的，这是一个哈希数组，每一个散列桶的长度不能超过53，就是STRCACHE_N（待考察）
 #if !defined(STRCACHE_N)
 #define STRCACHE_N		53
 #define STRCACHE_M		2

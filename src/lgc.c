@@ -205,6 +205,11 @@ void luaC_fix (lua_State *L, GCObject *o) {
 ** create a new collectable object (with given type and size) and link
 ** it to 'allgc' list.
 */
+// 创建一个可以被GC的对象
+// 设置一下对象的垃圾回收标志marked
+// 类型tt
+// next地址
+// 然后把这个对象链接在全局g的allgc链表里
 GCObject *luaC_newobj (lua_State *L, int tt, size_t sz) {
   global_State *g = G(L);
   GCObject *o = cast(GCObject *, luaM_newobject(L, novariant(tt), sz));

@@ -148,6 +148,11 @@ void luaS_init (lua_State *L) {
 /*
 ** creates a new string object
 */
+// l字符串的长度，tag是字符串的类型，h是默认的hash种子
+// sizelstring就是求出UTString的size
+// luaC_newobj创建一个可以被GC的对象
+// 然后再把o转换成TString类型，继续设置ts的hash字段，和extra字段(extra用于标记是否是虚拟机保留的字符串，如果这个值为1，那么不会GC)
+// 然后把字符串的最后以'\0'结尾
 static TString *createstrobj (lua_State *L, size_t l, int tag, unsigned int h) {
   TString *ts;
   GCObject *o;
@@ -162,6 +167,8 @@ static TString *createstrobj (lua_State *L, size_t l, int tag, unsigned int h) {
 }
 
 
+// 创建一个长字符串
+// 调用createstrobj
 TString *luaS_createlngstrobj (lua_State *L, size_t l) {
   TString *ts = createstrobj(L, l, LUA_TLNGSTR, G(L)->seed);
   ts->u.lnglen = l;
@@ -214,6 +221,10 @@ static TString *internshrstr (lua_State *L, const char *str, size_t l) {
 /*
 ** new string (with explicit length)
 */
+// LUAI_MAXSHORTLEN是40，定义在llimits.h中，用作判断字符串是长字符串还是短字符串
+// 在这里，如果是短字符串的话，就调用internshrstr
+// 如果是长字符串的话，就先新建一个字符串变量(TString)
+// 如果长度太大的话就报错，如何判断长度太大，首先你要明白MAX_SIZE是啥,有关MAX_SIZE的定义在llimits.h中
 TString *luaS_newlstr (lua_State *L, const char *str, size_t l) {
   if (l <= LUAI_MAXSHORTLEN)  /* short string? */
     return internshrstr(L, str, l);
@@ -237,6 +248,13 @@ TString *luaS_newlstr (lua_State *L, const char *str, size_t l) {
 // 创建或重用一个以'\0'结尾的字符串，首先检查缓存(使用字符串的地址做为key来获取字符串)
 // 这个缓存能够包含以'\0'结尾的字符串，因此使用'strcmp'来检查是否命中是安全的
 
+// 在lua中，字符串是被内化的一种数据结构，内化的意思就是说，每个存放lua字符串的变量，实际上存放的并不是一份字符串的数据副本，而是这份字符串的引用
+// 因此，在lua中字符串是一个不可变的数据，然后呐，为了实现内化，在lua虚拟机中必然要存在一个全局的地方存放当前系统中的所有字符串，lua虚拟机使用一个散列通来管理字符串
+// 上面说到了lua虚拟机中存在一个全局的地方存放字符串，这个全局变量就是global_State的strt成员。它是一个散列数组
+// 当创建一个字符串时，首先根据哈希算法，算出哈希值，这个算出来的哈希值就是strt数组的索引值，如果这个地方已经有值了，则使用链表串接起来（串接部分不能超过STRCACHE_M）
+// p指向的是strt的第一个链表，然后再比较str和当前的字符串有没有一样的，有的话，直接返回
+// 如果不存在一样的字符串的话，就创建一个
+// 首先要做的操作就是把当前strt中的元素，全部往后移一个位置，p[0]用来存放新建的字符串
 TString *luaS_new (lua_State *L, const char *str) {
   unsigned int i = point2uint(str) % STRCACHE_N;  /* hash */
   int j;
