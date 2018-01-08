@@ -349,6 +349,8 @@ LUALIB_API int luaL_newmetatable (lua_State *L, const char *tname) {
 }
 
 // 将注册表中 tname 关联元表 设为栈顶对象的元表。
+// luaL_getmetatable将注册表中key为tname的metatable压入堆栈
+// 随后调用lua_setmetatable把从注册表获取到的元表设置为-2索引处数据的元表
 LUALIB_API void luaL_setmetatable (lua_State *L, const char *tname) {
   luaL_getmetatable(L, tname);
   lua_setmetatable(L, -2);

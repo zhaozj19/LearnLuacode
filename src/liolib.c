@@ -141,12 +141,29 @@ static int l_checkmode (const char *mode) {
 
 typedef luaL_Stream LStream;
 
-
+luaL_checkudata判断栈中ud索引的值是否是第三个参数里面的数据类型，是的话返回地址，否则抛出错误
 #define tolstream(L)	((LStream *)luaL_checkudata(L, 1, LUA_FILEHANDLE))
 
+// 判断文件是否已经被关闭，是看处理文件的C函数是否为NULL
 #define isclosed(p)	((p)->closef == NULL)
 
 
+
+// 文件描述符在形式上是一个非负整数。实际上，它是一个索引值，指向内核为每一个进程所维护的该进程打开文件的记录表。
+// 当程序打开一个现有文件或者创建一个新文件时，内核向进程返回一个文件描述符。
+// 在程序设计中，一些涉及底层的程序编写往往会围绕着文件描述符展开。但是文件描述符这一概念往往只适用于UNIX、Linux这样的操作系统。
+// 在非UNIX/Linux 操作系统上（如Windows），无法基于这一概念进行编程——事实上，Windows下的文件描述符和信号量、互斥锁等内核对象一样都记作HANDLE。（以上摘自维基百科）
+
+// 而在lua中，作者把文件描述符抽象成了luaL_Stream数据结构(定义在lauxlib.h中)
+
+// 检测一个文件描述符obj是否有效，假如obj是一个打开的文件描述符则会返回字符串"file"
+// 如果obj是一个关闭的文件描述符则会返回"closed file"
+// 当obj是一个无效的文件描述符时则会返回nil
+
+// luaL_checkany检测index处的参数是否有类型(包括nil),没有的话就报错
+// luaL_testudata(L, 1, LUA_FILEHANDLE)检查栈中第1个参数是否为类型为LUA_FILEHANDLE的用户数据
+// LUA_FILEHANDLE是定义在lauxlib.h中FILE*文件指针类型
+// lua_pushliteral向lua栈中压入一个字符串
 static int io_type (lua_State *L) {
   LStream *p;
   luaL_checkany(L, 1);
@@ -160,7 +177,7 @@ static int io_type (lua_State *L) {
   return 1;
 }
 
-
+// 打印文件的FILE*指针
 static int f_tostring (lua_State *L) {
   LStream *p = tolstream(L);
   if (isclosed(p))
@@ -170,7 +187,7 @@ static int f_tostring (lua_State *L) {
   return 1;
 }
 
-
+// 返回L栈底的文件类型的userdata的指针
 static FILE *tofile (lua_State *L) {
   LStream *p = tolstream(L);
   if (isclosed(p))
@@ -185,6 +202,10 @@ static FILE *tofile (lua_State *L) {
 ** before opening the actual file; so, if there is a memory error, the
 ** handle is in a consistent state.
 */
+// 当创建一个文件句柄时，在打开任何实际的文件时总是创建一个关闭的文件句柄，因此如果出现内存错误，则句柄处于一致状态。
+// newprefile创建一个lua中的文件句柄(文件也属于用户数据)
+// 创建初的句柄为关闭状态
+// 然后调用luaL_setmetatable，从注册表中获取key为FILE*的元表，然后设置为p的元表
 static LStream *newprefile (lua_State *L) {
   LStream *p = (LStream *)lua_newuserdata(L, sizeof(LStream));
   p->closef = NULL;  /* mark file handle as 'closed' */
