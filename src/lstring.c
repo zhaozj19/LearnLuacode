@@ -29,6 +29,7 @@
 ** Lua will use at most ~(2^LUAI_HASHLIMIT) bytes from a string to
 ** compute its hash
 */
+// lua最多会从一个字符串中截取2^5字节来计算其哈希值（不足32字节的全部用上，超出的截取最后的32字节）
 #if !defined(LUAI_HASHLIMIT)
 #define LUAI_HASHLIMIT		5
 #endif
@@ -86,6 +87,16 @@ unsigned int luaS_hashlongstr (TString *ts) {
 /*
 ** resizes the string table
 */
+// 当stringtable中的字符串数量(nuse域)超过预定容量(size域)时，说明stringtable太拥挤，许多字符串可能都哈希到同一个维度中去，这将会降低stringtable的遍历效率。
+// 这个时候需要调用luaS_resize方法将stringtable的哈希链表数组扩大，重新排列所有字符串的位置
+
+// 首先获取全局表的strt域，如果newsiz大于strt->size时就需要扩容了，具体操作是：
+// 调用luaM_reallocvector调整tb->hash中的指针指向的元素数量，紧接着把新创建的tb->hash[i]全部指向NULL，然后在下一个for循环里面进行重新hash
+// 拿到tb中第一个hash数组，紧接着对此数组中的字符串进行hash操作，每一个单次for循环都是对hash的一个链表中的所有字符串元素进行重新hash
+// 首先拿到p作为此链表的指针，然后断开hash数组和此链表的链接，最后在一个while中依次对链表中的元素进行重新hash(lmod(p->hash, newsize))
+// 通过获取出来的h，来插入hash数组的相应链表的头位置，按照此过程一直遍历完整个hash数组（此方法存在的那个元素多次hash的状况）
+
+// 如果是需要缩减strt中nuse域中的长度时，只需要调用luaM_reallocvector调整数量就可以了(此api定义在lmem.h中)
 void luaS_resize (lua_State *L, int newsize) {
   int i;
   stringtable *tb = &G(L)->strt;
@@ -118,6 +129,10 @@ void luaS_resize (lua_State *L, int newsize) {
 ** Clear API string cache. (Entries cannot be empty, so fill them with
 ** a non-collectable string.)
 */
+// 清除全局表中的字符串换存
+// 如果对象是白色(意味着当前对象为待访问状态，表示对象还没有被GC标记过，这也是任何一个对象创建后的初始状态，
+  // 如果一个对象在结束GC扫描之后仍然是白色，则说明该对象没有被系统中的任何一个对象所引用，可以回收其空间了)
+// 然后用一个宏字符串来替代?
 void luaS_clearcache (global_State *g) {
   int i, j;
   for (i = 0; i < STRCACHE_N; i++)
@@ -131,6 +146,10 @@ void luaS_clearcache (global_State *g) {
 /*
 ** Initialize the string table and the string cache
 */
+// 初始化字符串表和字符串缓存
+// luaS_resize初始化字符串表
+// 然后全局表的memerrmsg指向一个不可回收的字符串(luaC_fix)
+// 然后让字符串缓存全部指向此不可回收的字符串
 void luaS_init (lua_State *L) {
   global_State *g = G(L);
   int i, j;
@@ -275,6 +294,7 @@ TString *luaS_new (lua_State *L, const char *str) {
 }
 
 
+// 创建一个userdata
 Udata *luaS_newudata (lua_State *L, size_t s) {
   Udata *u;
   GCObject *o;

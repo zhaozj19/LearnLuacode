@@ -189,6 +189,7 @@ typedef unsigned long Instruction;
 ** metaevent keys + a few others). Libraries would typically add
 ** a few dozens more.
 */
+// 字符串表的初始尺寸是128(必须是2的幂)，lua的核心代码允许保留50个字符串(保留字+元方法键+一些其他的)。Libraries通常会增加几十个
 #if !defined(MINSTRTABSIZE)
 #define MINSTRTABSIZE	128
 #endif
