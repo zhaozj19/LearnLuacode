@@ -621,6 +621,7 @@ LUA_API int lua_gettable (lua_State *L, int idx) {
 }
 
 
+// 把t[k]的值压入堆栈，此处的t是idx所指的t(有可能触发元方法)
 LUA_API int lua_getfield (lua_State *L, int idx, const char *k) {
   lua_lock(L);
   return auxgetstr(L, index2addr(L, idx), k);

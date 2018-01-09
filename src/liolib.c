@@ -141,7 +141,7 @@ static int l_checkmode (const char *mode) {
 
 typedef luaL_Stream LStream;
 
-luaL_checkudata判断栈中ud索引的值是否是第三个参数里面的数据类型，是的话返回地址，否则抛出错误
+// luaL_checkudata判断栈中ud索引的值是否是第三个参数里面的数据类型，是的话返回地址，否则抛出错误
 #define tolstream(L)	((LStream *)luaL_checkudata(L, 1, LUA_FILEHANDLE))
 
 // 判断文件是否已经被关闭，是看处理文件的C函数是否为NULL
@@ -219,6 +219,8 @@ static LStream *newprefile (lua_State *L) {
 ** a bug in some versions of the Clang compiler (e.g., clang 3.0 for
 ** 32 bits).
 */
+// 从一个文件句柄中调用'close'函数。'volatile'避免了在某些版本的Clang编译器中的一个bug(例如32位版本的clang3.0编译器)
+// 通过tolstream返回栈底的文件描述
 static int aux_close (lua_State *L) {
   LStream *p = tolstream(L);
   volatile lua_CFunction cf = p->closef;
@@ -226,7 +228,10 @@ static int aux_close (lua_State *L) {
   return (*cf)(L);  /* close it */
 }
 
-
+// 关闭一个文件句柄(默认关闭标准输出文件)
+// 这里通过判断调用io_close时有没有附加参数，没有的话就默认关闭标准输出文件
+// lua_getfield的作用是把t[IO_OUTPUT]的值压入栈，t是LUA_REGISTRYINDEX所指的t
+// 在这里，tofile的作用虽然是返回文件描述的FILE*指针，但是没有接收的变量，真实的作用是判断此文件是否为打开状态
 static int io_close (lua_State *L) {
   if (lua_isnone(L, 1))  /* no argument? */
     lua_getfield(L, LUA_REGISTRYINDEX, IO_OUTPUT);  /* use standard output */
