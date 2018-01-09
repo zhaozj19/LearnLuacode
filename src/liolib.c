@@ -37,6 +37,11 @@
 #endif
 
 /* Check whether 'mode' matches '[rwa]%+?[L_MODEEXT]*' */
+// strchr是一个C函数，原型是：char *strchr(const char* _Str,char _Val) 用处是查找字符串_Str中首次出现字符_Val的位置
+// 返回首次出现_Val的位置的指针，返回的地址是被查找字符串指针开始的第一个与Val相同字符的指针，如果Str中不存在Val则返回NULL。
+// strspn是一个C函数，原型是：size_t strspn (const char *s,const char * accept);用处是从参数s 字符串的开头计算连续的字符，而这些字符都完全是accept 所指字符串中的字符。
+// 返回字符串s开头连续包含字符串accept内的字符数目
+// 这个宏就是检查传进来的mode参数符不符合规范，具体规则是判断mode是否为空、是否包含'rwa字符'
 static int l_checkmode (const char *mode) {
   return (*mode != '\0' && strchr("rwa", *(mode++)) != NULL &&
          (*mode != '+' || (++mode, 1)) &&  /* skip if char is '+' */
@@ -51,18 +56,29 @@ static int l_checkmode (const char *mode) {
 ** one through the file streams.
 ** =======================================================
 */
+// l_popen构造一个新进程，通过文件流的方连接到当前进程
 
 #if !defined(l_popen)		/* { */
 
 #if defined(LUA_USE_POSIX)	/* { */
-
+// 下面是POSIX规范下的定义
+// fflush:清除读写缓冲区，需要立即把输出缓冲区的数据进行物理写入时
 #define l_popen(L,c,m)		(fflush(NULL), popen(c,m))
 #define l_pclose(L,file)	(pclose(file))
+// POSIX规范结束
 
 #elif defined(LUA_USE_WINDOWS)	/* }{ */
-
+// 下面是windows下的定义
+// _popen通过创建一个管道，调用 fork 产生一个子进程。这个进程必须由 _pclose() 函数关闭，而不是 fclose() 函数
+// 管道就是一部份共享内存以便进程可以用来相互通信
+// 原型为：FILE * popen ( const char * command , const char * type );
+// type 参数只能是读或者写中的一种。如果 type 是 "r" 则文件指针连接到 command 的标准输出；如果 type 是 "w" 则文件指针连接到 command 的标准输入。
+// command 参数是一个指向以 NULL 结束的 shell 命令字符串的指针。这行命令将被传到 bin/sh 并使用-c 标志，shell 将执行这个命令。
 #define l_popen(L,c,m)		(_popen(c,m))
+// pclose()用来关闭由popen所建立的管道及文件指针。参数stream为先前由popen()所返回的文件指针
+// 若成功返回shell的终止状态(也即子进程的终止状态)，若出错返回-1，错误原因存于errno中
 #define l_pclose(L,file)	(_pclose(file))
+// windows规范结束
 
 #else				/* }{ */
 
@@ -141,7 +157,7 @@ static int l_checkmode (const char *mode) {
 
 typedef luaL_Stream LStream;
 
-luaL_checkudata判断栈中ud索引的值是否是第三个参数里面的数据类型，是的话返回地址，否则抛出错误
+// luaL_checkudata判断栈中ud索引的值是否是第三个参数里面的数据类型，是的话返回地址，否则抛出错误
 #define tolstream(L)	((LStream *)luaL_checkudata(L, 1, LUA_FILEHANDLE))
 
 // 判断文件是否已经被关闭，是看处理文件的C函数是否为NULL
@@ -219,6 +235,8 @@ static LStream *newprefile (lua_State *L) {
 ** a bug in some versions of the Clang compiler (e.g., clang 3.0 for
 ** 32 bits).
 */
+// 从一个文件句柄中调用'close'函数。'volatile'避免了在某些版本的Clang编译器中的一个bug(例如32位版本的clang3.0编译器)
+// 通过tolstream返回栈底的文件描述，然后cf拿到文件描述的C函数closef，最后置为NULL就表示关闭了
 static int aux_close (lua_State *L) {
   LStream *p = tolstream(L);
   volatile lua_CFunction cf = p->closef;
@@ -226,7 +244,10 @@ static int aux_close (lua_State *L) {
   return (*cf)(L);  /* close it */
 }
 
-
+// 关闭一个文件句柄(默认关闭标准输出文件)
+// 这里通过判断调用io_close时有没有附加参数，没有的话就默认关闭标准输出文件
+// lua_getfield的作用是把t[IO_OUTPUT]的值压入栈，t是LUA_REGISTRYINDEX所指的t
+// 在这里，tofile的作用虽然是返回文件描述的FILE*指针，但是没有接收的变量，真实的作用是判断此文件是否为打开状态
 static int io_close (lua_State *L) {
   if (lua_isnone(L, 1))  /* no argument? */
     lua_getfield(L, LUA_REGISTRYINDEX, IO_OUTPUT);  /* use standard output */
@@ -235,6 +256,7 @@ static int io_close (lua_State *L) {
 }
 
 
+// 关闭一个文件句柄
 static int f_gc (lua_State *L) {
   LStream *p = tolstream(L);
   if (!isclosed(p) && p->f != NULL)
@@ -246,6 +268,9 @@ static int f_gc (lua_State *L) {
 /*
 ** function to close regular files
 */
+// 用来关闭文件描述符的
+// 首先拿到文件描述符p，然后调用C函数fclose关闭FILE*指针
+// 如果流成功关闭，fclose 返回 0，否则返回EOF（-1）
 static int io_fclose (lua_State *L) {
   LStream *p = tolstream(L);
   int res = fclose(p->f);
@@ -253,6 +278,8 @@ static int io_fclose (lua_State *L) {
 }
 
 
+// 创建一个文件，返回文件描述符
+// 把文件描述符p的f置为NULL(f代表FILE*)，管理文件的C函数置为io_fclose
 static LStream *newfile (lua_State *L) {
   LStream *p = newprefile(L);
   p->f = NULL;
@@ -269,6 +296,21 @@ static void opencheck (lua_State *L, const char *fname, const char *mode) {
 }
 
 
+// 此函数会以参数mode(调用io.open的第二个参数)所描述的方式打开文件filename，并返回一个文件描述符
+// mode的类型及含义如下：
+// 'r':以只读的方式打开文件，该文件必须存在，否则返回nil
+// 'w':以只写方式打开文件，若文件存在则清空文件内容，若文件不存在则建立该文件，从头开始写
+// 'a':以附加的方式打开只写文件。若文件不存在则会建立该文件，如果文件存在，写入的数据则会追加到文件尾
+// 'r+':以读写方式打开文件，该文件必须存在，读取时从文件头开始读，写入时从文件头开始写，保留原文件中没有被覆盖的内容
+// 'w+':以读写方式打开文件，若文件存在则清空文件内容。若文件不存在则建立该文件，从头写入，从头读取
+// 'a+':以附加的方式打开可读写文件。若文件不存在，则会建立该文件，如果文件存在，写入的数据则会被追加到文件尾，原文件的内容会被保留
+// 默认是以'r'的方式打开文件，紧接着创建一个新的文件描述符，然后拿到mode对其进行检测是否符合规范
+// luaL_argcheck：检查第二个参数是否为真，如果不是的话抛出附带的错误消息
+// fopen是一个C函数；函数原型：FILE * fopen(const char * path, const char * mode);
+// 参数 path字符串包含欲打开的文件路径及文件名，参数 mode 字符串则代表着流形态。
+// 文件顺利打开后，指向该流的文件指针就会被返回。如果文件打开失败则返回 NULL，并把错误代码存在 error 中。
+// 然后文件描述符的FILE*字段就等于通过fopen返回指向该流的文件指针
+// 最后成功的话返回1,不然就返回nil
 static int io_open (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "r");
@@ -283,12 +325,19 @@ static int io_open (lua_State *L) {
 /*
 ** function to close 'popen' files
 */
+// 这个函数不同于io_fclose,次函数是配套io_popen使用的，因为通过io_popen创建出来的文件描述符是可以连接进程的，所以不能混用
+// 首先拿到文件描述符，然后调用l_pclose关闭此文件描述符，最后通过luaL_execresult将执行的结果保存在栈中(return true/nil,what,code)
 static int io_pclose (lua_State *L) {
   LStream *p = tolstream(L);
   return luaL_execresult(L, l_pclose(L, p->f));
 }
 
 
+
+// 此函数用于在额外的进程中启动程序filename，并返回filename的句柄
+// 通俗的来说就是使用这个函数可以调用一个命令（程序），并且返回一个和这个程序相关的文件描述符
+// 首先获取程序的文件名filename，然后获取mode，默认是'r'，紧接着创建一个新的文件描述符p，然后p的FILE*指向l_popen的返回结果(一个文件描述符，可以连通两个进程)
+// 然后管理文件的C函数置为io_pclose，最后成功的话返回1,不然就返回nil
 static int io_popen (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "r");

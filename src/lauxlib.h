@@ -119,6 +119,8 @@ LUALIB_API void (luaL_requiref) (lua_State *L, const char *modname,
 #define luaL_newlib(L,l)  \
   (luaL_checkversion(L), luaL_newlibtable(L,l), luaL_setfuncs(L,l,0))
 
+
+// luaL_argcheck：检查cond是否为真，如果不是的话抛出附带的错误消息
 #define luaL_argcheck(L, cond,arg,extramsg)	\
 		((void)((cond) || luaL_argerror(L, (arg), (extramsg))))
 #define luaL_checkstring(L,n)	(luaL_checklstring(L, (n), NULL))
