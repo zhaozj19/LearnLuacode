@@ -287,7 +287,7 @@ static LStream *newfile (lua_State *L) {
   return p;
 }
 
-
+// 判断fname是否可以按照mode方式操作，不可以的话抛出错误
 static void opencheck (lua_State *L, const char *fname, const char *mode) {
   LStream *p = newfile(L);
   p->f = fopen(fname, mode);
@@ -348,6 +348,11 @@ static int io_popen (lua_State *L) {
 }
 
 
+// 此函数用来创建一个临时文件，并且返回临时文件的句柄
+// 和创建一个文件一样，也是先创建一个LStream*类型的文件指针，不同的地方在于FILE*指针指向的是一个临时文件，哈哈哈哈
+// 重点就是tmpfile，这是一个C函数，原型为：FILE *tmpfile(void);以'wb+'形式创建一个临时二进制文件，返回临时文件的文件句柄
+// 创建出来的临时文件在程序结束时就会被自动删除
+// 另外一个类似的函数，os.tmpname()只返回文件名，需要手动打开和关闭，而io.tmpfile()函数实现打开和关闭都是自动的
 static int io_tmpfile (lua_State *L) {
   LStream *p = newfile(L);
   p->f = tmpfile();
@@ -364,7 +369,11 @@ static FILE *getiofile (lua_State *L, const char *findex) {
   return p->f;
 }
 
-
+// lua_isnoneornil用来判断L中索引处的值是否存在类型包含nil，如果不存在的话，返回false
+// lua_tostring把L中索引处的字符串转化为C风格并返回
+// 如果传了filename的话，那么调用opencheck对文件执行mode操作
+// 如果没传的话，默认对当前默认文件进行操作
+// 然后用tofile检测一下文件句柄是否合法，紧接着把句柄入栈
 static int g_iofile (lua_State *L, const char *f, const char *mode) {
   if (!lua_isnoneornil(L, 1)) {
     const char *filename = lua_tostring(L, 1);
@@ -382,11 +391,12 @@ static int g_iofile (lua_State *L, const char *f, const char *mode) {
 }
 
 
+// 打开一个文件，然后把这个文件作为默认的输入文件，如果不传参数的话，返回当前默认的输入文件描述符
 static int io_input (lua_State *L) {
   return g_iofile(L, IO_INPUT, "r");
 }
 
-
+// 打开一个文件，把这个文件作为默认的输出文件，如果不传参数的话，返回当前默认的输出文件描述符
 static int io_output (lua_State *L) {
   return g_iofile(L, IO_OUTPUT, "w");
 }
@@ -401,6 +411,13 @@ static int io_readline (lua_State *L);
 */
 #define MAXARGLINE	250
 
+
+// lua_pushboolean:把 b 作为一个布尔量压栈(0为false，其他为true)
+// lua_rotate(L,idx,n)：把从 idx 开始到栈顶的元素轮转 n 个位置。 对于 n 为正数时，轮转方向是向栈顶的； 当 n 为负数时，向栈底方向轮转 -n 个位置。（看不到说的什么，百度过来的）
+// lua_pushcclosure：向栈中放入一个C闭包，当创建了一个 C 函数后， 你可以给它关联一些值， 这就是在创建一个 C 闭包
+// 接下来无论函数何时被调用，这些值都可以被这个函数访问到。 
+// 为了将一些值关联到一个 C 函数上， 首先这些值需要先被压入堆栈（如果有多个值，第一个先压）。 
+// 接下来调用 lua_pushcclosure 来创建出闭包并把这个 C 函数压到栈上。 参数 n 告之函数有多少个值需要关联到函数上。 lua_pushcclosure 也会把这些值从栈上弹出。
 static void aux_lines (lua_State *L, int toclose) {
   int n = lua_gettop(L) - 1;  /* number of arguments to read */
   luaL_argcheck(L, n <= MAXARGLINE, MAXARGLINE + 2, "too many arguments");
@@ -417,7 +434,11 @@ static int f_lines (lua_State *L) {
   return 1;
 }
 
-
+// 按照文件名以读的方式打开一个文件，并且返回一个迭代函数，这个迭代函数每一次被调用都会返回文件中新一行的内容
+// 当迭代到文件末尾的时候，它会返回nil来结束循环并自动关闭文件
+// toclose为0时，迭代完不关闭文件，为1时迭代完关闭文件
+// 首先判断io.lines有没有传递参数，没有的话就是打开一个默认的输入文件，如果传递的有专门的文件名的话就打开它
+// 紧接着就是调用lua_replace把栈顶的值压入栈底，最后调用aux_lines，且返回文件描述符
 static int io_lines (lua_State *L) {
   int toclose;
   if (lua_isnone(L, 1)) lua_pushnil(L);  /* at least one argument */
@@ -650,7 +671,7 @@ static int f_read (lua_State *L) {
   return g_read(L, tofile(L), 2);
 }
 
-
+// lua_upvalueindex返回当前运行的函数的第 i 个上值的伪索引
 static int io_readline (lua_State *L) {
   LStream *p = (LStream *)lua_touserdata(L, lua_upvalueindex(1));
   int i;
