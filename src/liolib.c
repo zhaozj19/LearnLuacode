@@ -96,6 +96,9 @@ static int l_checkmode (const char *mode) {
 /* }====================================================== */
 
 
+int getc(FILE *stream);
+// 从流中读取一个字符，并把它作为函数返回值以整形变量返回，读取文件字符后文件指针并不会移动，和fgetc是不一样的，如果读取失败或到了文件末尾则返回EOF(-1)
+
 #if !defined(l_getc)		/* { */
 
 #if defined(LUA_USE_POSIX)
@@ -359,7 +362,11 @@ static int io_tmpfile (lua_State *L) {
   return (p->f == NULL) ? luaL_fileresult(L, 0, NULL) : 1;
 }
 
-
+// 获取findex指定的输入输出文件
+// lua_getfield(L, LUA_REGISTRYINDEX, findex);把LUA_REGISTRYINDEX指向的table的findex处的值压栈
+// 然后p指向当前栈顶(此处的栈顶就是一个lStream的指针)
+// 然后判断p的文件流是否被关闭，没有关闭时返回FILE*指针即可
+// 扩展：lua提供了一个注册表，这是一个预定义出来的表，可以用来保存C代码想保存的Lua值。这个表是用有效索引LUA_REGISTRYINDEX定位的，LUA_REGISTRYINDEX定义在lua.h中值为-10000
 static FILE *getiofile (lua_State *L, const char *findex) {
   LStream *p;
   lua_getfield(L, LUA_REGISTRYINDEX, findex);
@@ -564,7 +571,11 @@ static int test_eof (lua_State *L, FILE *f) {
   return (c != EOF);
 }
 
-
+// 从一个文件中，一行一行的读取内容
+// 准备工作，先声明一个lua缓存块，一个c字符用来标识是否到行尾或文件尾，然后初始化缓存块
+// 然后在while里面一行一行的读取内容
+// 要读取文件中的一行内容时，现在b中预分配一个缓存区，默认大小为LUAL_BUFFERSIZE，定义在luaconfig.h中
+// l_getc获取文件的下一个字符,读取完一行之后，就向缓存区填入此行内容（读取文件的时候文件一直处于被锁定状态）
 static int read_line (lua_State *L, FILE *f, int chop) {
   luaL_Buffer b;
   int c = '\0';
@@ -611,7 +622,11 @@ static int read_chars (lua_State *L, FILE *f, size_t n) {
   return (nr > 0);  /* true iff read something */
 }
 
+// g_read用来从文件中读取内容，它会根据指定的参数来读取内容，读不到会返回nil，可指定读取格式也可不指定
 
+// clearerr是一个C函数，作用是针对文件句柄复位错误标志
+// 没有指定读取格式的话，默认为读取行，调用read_line
+// 如果传参的话，先检查参数是否过多，默认不能超过20个
 static int g_read (lua_State *L, FILE *f, int first) {
   int nargs = lua_gettop(L) - 1;
   int success;
@@ -662,6 +677,7 @@ static int g_read (lua_State *L, FILE *f, int first) {
 }
 
 
+// 从当前的输入文件中读取内容
 static int io_read (lua_State *L) {
   return g_read(L, getiofile(L, IO_INPUT), 1);
 }
