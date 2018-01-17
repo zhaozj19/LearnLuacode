@@ -474,12 +474,19 @@ static int io_lines (lua_State *L) {
 
 
 /* maximum length of a numeral */
+// 一个数字的最大长度(为什么定义到200？WTF)
 #if !defined (L_MAXLENNUM)
 #define L_MAXLENNUM     200
 #endif
 
 
 /* auxiliary structure used by 'read_number' */
+
+// 让read_number使用的一个结构体
+// f:要读取数字的源文件
+// c:正在读取的当前字符
+// n:当前数字的下标(比如说要读取的是5678，此时指针位于6，则n就是1)
+// buff:用来装读取到的数字，嘻嘻哈哈，这么简单
 typedef struct {
   FILE *f;  /* file being read */
   int c;  /* current character (look ahead) */
@@ -491,6 +498,8 @@ typedef struct {
 /*
 ** Add current char to buffer (if not out of space) and read next one
 */
+// 保存当前字符的同时，也让rn里面的c指向下一个字符
+// 操作很简单的，先做一下溢出操作的判断，然后进行else里的逻辑
 static int nextc (RN *rn) {
   if (rn->n >= L_MAXLENNUM) {  /* buffer overflow? */
     rn->buff[0] = '\0';  /* invalidate result */
@@ -507,6 +516,7 @@ static int nextc (RN *rn) {
 /*
 ** Accept current char if it is in 'set' (of size 2)
 */
+// test2用来获取指定字符的下一个字符
 static int test2 (RN *rn, const char *set) {
   if (rn->c == set[0] || rn->c == set[1])
     return nextc(rn);
@@ -517,6 +527,9 @@ static int test2 (RN *rn, const char *set) {
 /*
 ** Read a sequence of (hex)digits
 */
+// 读一个十六进制数字序列，并返回长度，此处的长度就是字符的数量
+// 如果不是十六机制的话，就读一个普通的数字，然后把count返回
+// 在while循环的过程中就已经把符合条件的字符放入到rn->buff里面了，同时也更新了rn->c
 static int readdigits (RN *rn, int hex) {
   int count = 0;
   while ((hex ? isxdigit(rn->c) : isdigit(rn->c)) && nextc(rn))
@@ -530,6 +543,13 @@ static int readdigits (RN *rn, int hex) {
 ** Then it calls 'lua_stringtonumber' to check whether the format is
 ** correct and to convert it to a Lua number
 */
+// 读取一个数字：首先读取一个数字的有效前缀到缓冲区。然后调用lua_stringtonumber来检查这种格式是否正确，并转换成lua number
+
+// rn是要读取整数的一个操作意义上的结构体，count是要读取的数字的字符个数，hex标记是否为十六机制decp暂时不知
+// lua_getlocaledecpoint得到本地的小数点号,这个api定义在luaconf.h
+// 首先判断是否为十六进制，初始化hex，然后调用readdigits读取整数部分,接着，如果有小数部分的话，继续读小数部分的内容
+// 再继续如果有指数的话，就把指数也读进来(普通数字的指数格式为2.15E-077，e也可以。十六进制的指数格式为。。。不知道)
+// 然后如果buff可以转换为字符串，那就入栈返回
 static int read_number (lua_State *L, FILE *f) {
   RN rn;
   int count = 0;
@@ -564,6 +584,9 @@ static int read_number (lua_State *L, FILE *f) {
 }
 
 
+// 判断f是否到文件末尾
+// ungetc的作用把一个字符退回到文件输入流中
+// lua_pushliteralxiang栈中压入一个常量字符串
 static int test_eof (lua_State *L, FILE *f) {
   int c = getc(f);
   ungetc(c, f);  /* no-op when c == EOF */
@@ -597,6 +620,11 @@ static int read_line (lua_State *L, FILE *f, int chop) {
 }
 
 
+// 从当前的文件读取位置读取整个文件
+// 老规矩，还是首先定义一个缓存快，并初始化，然后每次读取LUAL_BUFFERSIZE个字符，每次都放入b中，最后再把b入栈
+// LUAL_BUFFERSIZE就是BUFSIZ的宏，定义在luaconf.h中，BUFSIZ是定义在stdlib.h中的一个宏
+// 具体作用就是程序输出时，为减轻系统负担，可以先将需要输出的字符保存起来，即放入内存缓冲。当达到输出条件时：行缓
+// 冲遇到换行符，块缓冲遇到写满缓存，或用户强制fflush；才进行写文件动作。BUFSIZ为系统默认的缓冲区大小。
 static void read_all (lua_State *L, FILE *f) {
   size_t nr;
   luaL_Buffer b;
@@ -609,7 +637,10 @@ static void read_all (lua_State *L, FILE *f) {
   luaL_pushresult(&b);  /* close buffer */
 }
 
-
+// 从一个文件中读取n个字符
+// 还是预先创建一块缓存区，然后初始化缓存区，因涉及的API都是别的文件的，到时候在分析吧
+// 然后调用fread从一个文件读取若干字符，然后把缓存区的指针入栈即可
+// fread是一个C函数,从文件f中读取n个字符,每个字符的大小为sizeof(char)，如果读取成功，返回实际读取到的字符个数(小于或等于count)，如果不成功或读到文件尾返回0
 static int read_chars (lua_State *L, FILE *f, size_t n) {
   size_t nr;  /* number of chars actually read */
   char *p;
@@ -627,6 +658,13 @@ static int read_chars (lua_State *L, FILE *f, size_t n) {
 // clearerr是一个C函数，作用是针对文件句柄复位错误标志
 // 没有指定读取格式的话，默认为读取行，调用read_line
 // 如果传参的话，先检查参数是否过多，默认不能超过20个
+// 然后再根据传进来整型值L栈中的传进来的整型值，读取这个文件的前多少个字符
+// 如果调用read时，有整形参数的话，调用read_chars,从文件中读取字符
+// 否则就按照传进来的读取类型进行读取
+// n:读取一个数字
+// l:读取一行并忽略行结束标志
+// L:读取一行并保留行结束标志
+// a:从当前位置读取整个文件
 static int g_read (lua_State *L, FILE *f, int first) {
   int nargs = lua_gettop(L) - 1;
   int success;
@@ -678,11 +716,12 @@ static int g_read (lua_State *L, FILE *f, int first) {
 
 
 // 从当前的输入文件中读取内容
+// 调用方式：io.read("xxx.txt","r")
 static int io_read (lua_State *L) {
   return g_read(L, getiofile(L, IO_INPUT), 1);
 }
 
-
+// 调用方式：file:read("xxx.txt","r",9)
 static int f_read (lua_State *L) {
   return g_read(L, tofile(L), 2);
 }

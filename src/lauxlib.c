@@ -738,7 +738,9 @@ LUALIB_API void luaL_unref (lua_State *L, int t, int ref) {
 ** Load functions
 ** =======================================================
 */
-
+// BUFSIZ是定义在stdlib.h中的一个宏
+// 具体作用就是程序输出时，为减轻系统负担，可以先将需要输出的字符保存起来，即放入内存缓冲。当达到输出条件时：行缓
+// 冲遇到换行符，块缓冲遇到写满缓存，或用户强制fflush；才进行写文件动作。BUFSIZ为系统默认的缓冲区大小。
 typedef struct LoadF {
   int n;  /* number of pre-read characters */
   FILE *f;  /* file being read */
