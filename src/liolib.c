@@ -126,6 +126,8 @@ int getc(FILE *stream);
 
 #include <sys/types.h>
 
+// off_t类型用于指示文件的偏移量
+
 #define l_fseek(f,o,w)		fseeko(f,o,w)
 #define l_ftell(f)		ftello(f)
 #define l_seeknum		off_t
@@ -141,6 +143,8 @@ int getc(FILE *stream);
 #else				/* }{ */
 
 /* ISO C definitions */
+// fseek重定位流(数据流/文件)上的文件内部位置指针
+// 函数 ftell 用于得到文件位置指针当前位置相对于文件首的偏移字节数
 #define l_fseek(f,o,w)		fseek(f,o,w)
 #define l_ftell(f)		ftell(f)
 #define l_seeknum		long
@@ -757,7 +761,7 @@ static int io_readline (lua_State *L) {
 
 /* }====================================================== */
 
-
+// 向文件f写入内容，获取出L传进来的参数，然后一个一个的写入f中
 static int g_write (lua_State *L, FILE *f, int arg) {
   int nargs = lua_gettop(L) - arg;
   int status = 1;
@@ -781,19 +785,29 @@ static int g_write (lua_State *L, FILE *f, int arg) {
   else return luaL_fileresult(L, status, NULL);
 }
 
-
+// 向文件中写入内容
+// 等价于io.output():write()
 static int io_write (lua_State *L) {
   return g_write(L, getiofile(L, IO_OUTPUT), 1);
 }
 
-
+// f_write和io_write的区别就是io_write默认指定的是IO_OUTPUT，而f_write可以自己指定文件
 static int f_write (lua_State *L) {
   FILE *f = tofile(L);
   lua_pushvalue(L, 1);  /* push file at the stack top (to be returned) */
   return g_write(L, f, 2);
 }
 
+// file:seek([whence][,offset])
+// 设置和获取当前文件位置,成功则返回最终的文件位置(按字节),失败则返回nil加错误信息，其中参数offset表示偏移的字节数，默认为0，whence是一个描述参数的字符串，一共有下述3中取值：
+// "set"：设置从文件头开始
+// "cur": 设置从当前位置开始[默认]
+// "end": 设置从文件尾开始
 
+// 首先获取L里面的f指针，然后检查参数是不是modenames中的，不然就默认是cur
+// p3用来保存当前文件的起始位置，默认为0，用offset来保存
+// l_fseek重定位流(数据流/文件)上的文件内部位置指针，成功时返回0，不然返回非0值
+// 然后调用l_ftell把文件位置指针偏移量入栈返回1
 static int f_seek (lua_State *L) {
   static const int mode[] = {SEEK_SET, SEEK_CUR, SEEK_END};
   static const char *const modenames[] = {"set", "cur", "end", NULL};
@@ -812,7 +826,14 @@ static int f_seek (lua_State *L) {
   }
 }
 
+// file:setvbuf (mode [, size])
+// 设置输出文件缓冲区的模式，mode有以下三种方式可选：
+// "full"：满缓冲，冲区为空时，从流读入数据。或当缓冲区满时，向流写入数据。
+// "line"：行缓冲，每次从流中读入一行数据或向流中写入—行数据。
+// "no"：无缓冲，直接从流中读入数据或直接向流中写入数据，而没有缓冲区。
 
+// 核心也是调用setvbuf进行设置，对缓冲区进行类型设置
+// 成功返回0，失败返回非0。
 static int f_setvbuf (lua_State *L) {
   static const int mode[] = {_IONBF, _IOFBF, _IOLBF};
   static const char *const modenames[] = {"no", "full", "line", NULL};
@@ -824,12 +845,14 @@ static int f_setvbuf (lua_State *L) {
 }
 
 
-
+// 把用户程序中的缓冲区数据强制写入到文件或内存变量并清空缓冲区。io.flush()是作用在默认的输出文件描述符上，
+// 相当于io.output():flush()，对于其他的通用文件可以使用file:flush()或者io.flush(file)。
 static int io_flush (lua_State *L) {
   return luaL_fileresult(L, fflush(getiofile(L, IO_OUTPUT)) == 0, NULL);
 }
 
-
+// f_flush和io_flush的区别是io_flash使用的是隐式文件描述符，而f_flush使用的是显式文件描述符
+// luaL_fileresult是把对文件操作的结果入栈，其实就是压入一个布尔
 static int f_flush (lua_State *L) {
   return luaL_fileresult(L, fflush(tofile(L)) == 0, NULL);
 }
@@ -871,6 +894,7 @@ static const luaL_Reg flib[] = {
 };
 
 
+// 创建一个元表
 static void createmeta (lua_State *L) {
   luaL_newmetatable(L, LUA_FILEHANDLE);  /* create metatable for file handles */
   lua_pushvalue(L, -1);  /* push metatable */
@@ -883,6 +907,7 @@ static void createmeta (lua_State *L) {
 /*
 ** function to (not) close the standard files stdin, stdout, and stderr
 */
+// 操作FILE*指针的C函数，这里永远不会关闭标准输入输出和错误文件
 static int io_noclose (lua_State *L) {
   LStream *p = tolstream(L);
   p->closef = &io_noclose;  /* keep file opened */
@@ -892,6 +917,7 @@ static int io_noclose (lua_State *L) {
 }
 
 
+// 创建好LStream的f指针和C函数，还要设置一下标准输入输出文件
 static void createstdfile (lua_State *L, FILE *f, const char *k,
                            const char *fname) {
   LStream *p = newprefile(L);
@@ -905,6 +931,8 @@ static void createstdfile (lua_State *L, FILE *f, const char *k,
 }
 
 
+// 创建io库，默认文件设置为stdin,stdout,stderr
+// createmeta创建io库的元表
 LUAMOD_API int luaopen_io (lua_State *L) {
   luaL_newlib(L, iolib);  /* new module */
   createmeta(L);
