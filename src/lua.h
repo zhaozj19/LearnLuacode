@@ -79,6 +79,7 @@ typedef struct lua_State lua_State;
 
 
 /* minimum Lua stack available to a C function */
+// 对于C函数的栈空间，这里的意思就是lua和C调用的时候，那个负责传输数据的lua栈
 #define LUA_MINSTACK	20
 
 

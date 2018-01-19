@@ -29,7 +29,18 @@
 
 */
 
+/*
+  关于垃圾回收对象的一些笔记：lua中的所有对象都要在释放前保持它的可访问性，因此
+  所有对象都必须属于这些列表中的一个，这些列表就是用next连起来的'CommonHeader'链表中的一项
+  'allgc':所有未被标记的对象
+  'finobj':所有被标记的对象
+  'tobefnz':所有准备被回收的的对象
+  'fixedgc':所有不需要被回收的对象(只包含短字符串，例如保留字)
+*/
 
+
+// lua_longjmp结构体的里面包含
+// jmp_buf类型的b和volatile int 类型的status，用来提供远程调用的功能(类似于跨函数的GOTO语句，GOTO语句只能在函数内部进行跳转)
 struct lua_longjmp;  /* defined in ldo.c */
 
 
@@ -37,6 +48,9 @@ struct lua_longjmp;  /* defined in ldo.c */
 ** Atomic type (relative to signals) to better ensure that 'lua_sethook'
 ** is thread safe
 */
+// 为了确保'lua_sethook'是线程安全的，这里最好用自动类型(相对于信号)    看不懂啥意思
+// 当把变量声明为sig_atomic_t类型会保证该变量在使用或赋值时， 无论是在32位还是64位的机器上都能保证操作是原子的
+// sig_atomic_t类型在linux中定义为int
 #if !defined(l_signalT)
 #include <signal.h>
 #define l_signalT	sig_atomic_t
@@ -44,13 +58,16 @@ struct lua_longjmp;  /* defined in ldo.c */
 
 
 /* extra stack space to handle TM calls and some other extras */
+// 额外的栈空间，用来处理TM调用和一些其他操作(TM调用是什么玩意)
 #define EXTRA_STACK   5
 
-
+// LUA_MINSTACK是定义在lua.h中的让C函数用的栈空间，默认20，这个地方乘以2，是要干嘛呐，好像是要让state结构体用的
 #define BASIC_STACK_SIZE        (2*LUA_MINSTACK)
 
 
 /* kinds of Garbage Collection */
+// 下面两个是垃圾回收类型
+
 #define KGC_NORMAL	0
 #define KGC_EMERGENCY	1	/* gc was forced by an allocation failure */
 

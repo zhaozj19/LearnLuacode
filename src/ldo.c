@@ -63,6 +63,7 @@
 #elif defined(LUA_USE_POSIX)				/* }{ */
 
 /* in POSIX, try _longjmp/_setjmp (more efficient) */
+  // jmp_buf用来保存函数上下文，用于函数之间的跳转
 #define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
 #define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
 #define luai_jmpbuf		jmp_buf

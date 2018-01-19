@@ -232,7 +232,7 @@ static void setboolfield (lua_State *L, const char *key, int value) {
 /*
 ** Set all fields from structure 'tm' in the table on top of the stack
 */
-isdst：夏令时的标志
+// isdst：夏令时的标志
 static void setallfields (lua_State *L, struct tm *stm) {
   setfield(L, "sec", stm->tm_sec);
   setfield(L, "min", stm->tm_min);
