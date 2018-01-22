@@ -28,6 +28,20 @@
   unsigned argument.
 ===========================================================================*/
 
+/*
+  我们要确保指令是无符号的数字
+  所有的指令在前六位中都有一个操作码
+  指令包含下下列字段：
+  'A' : 8 bits
+  'B' : 9 bits
+  'C' : 9 bits
+  'Ax' : 26 bits ('A', 'B', and 'C' together)
+  'Bx' : 18 bits ('B' and 'C' together)
+  'sBx' : signed Bx
+  一个有符号的参数表示为多余的k，也就是说，number值是无符号的值(-k)，k就是对于这个参数的最大值
+  （所以，-max用0表示，+max用2*max表示）对应无符号参数最大值的一半
+  翻译的什么，我自己也看不懂，后面在说吧
+*/
 
 enum OpMode {iABC, iABx, iAsBx, iAx};  /* basic instruction format */
 

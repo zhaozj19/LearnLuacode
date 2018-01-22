@@ -19,6 +19,8 @@
 ** the total memory used by Lua (in bytes). Usually, 'size_t' and
 ** 'ptrdiff_t' should work, but we use 'long' for 16-bit machines.
 */
+// lu_mem和l_mem分别是unsigned/signed整形，足以计算lua使用的总内存(单位是字节)
+// 通常'size_t'和'ptrdiff_t'也能用，但是在16位计算机上我们使用long
 #if defined(LUAI_MEM)		/* { external definitions? */
 typedef LUAI_UMEM lu_mem;
 typedef LUAI_MEM l_mem;
@@ -163,6 +165,7 @@ typedef LUAI_UACINT l_uacInt;
 ** type for virtual-machine instructions;
 ** must be an unsigned with (at least) 4 bytes (see details in lopcodes.h)
 */
+// instruction是虚拟机的指令类型，一定要是无符号至少四个字节(lopcodes.h有说明)
 #if LUAI_BITSINT >= 32
 typedef unsigned int Instruction;
 #else

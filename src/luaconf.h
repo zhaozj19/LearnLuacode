@@ -86,10 +86,13 @@
 /*
 @@ LUAI_BITSINT defines the (minimum) number of bits in an 'int'.
 */
+// LUAI_BITSINT是int类型的位数
 /* avoid undefined shifts */
+// 如果INT_MAX被定义为32位，那么LUAI_BITSINT就被定义为32位
 #if ((INT_MAX >> 15) >> 15) >= 1
 #define LUAI_BITSINT	32
 #else
+// 不然LUAI_BITSINT就被定义为16位
 /* 'int' always must have at least 16 bits */
 #define LUAI_BITSINT	16
 #endif
