@@ -96,7 +96,11 @@ typedef struct GCObject GCObject;
 // next指向下一个GC链表的数据
 // tt代表数据的类型以及扩展类型以及GC位的标志
 // marked是执行GC的标记为，用于具体的GC算法
-marked用于存储GC需要的颜色的。具体定义如下：
+// marked用于存储GC需要的颜色的。具体定义如下：
+// #define WHITE0BIT 0  /* object is white (type 0) */
+// #define WHITE1BIT 1  /* object is white (type 1) */ 
+// #define BLACKBIT  2  /* object is black */
+// #define FINALIZEDBIT  3  /* object has been marked for finalization */
 
 #define CommonHeader	GCObject *next; lu_byte tt; lu_byte marked
 

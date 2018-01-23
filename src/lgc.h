@@ -36,14 +36,16 @@
 /*
 ** Possible states of the Garbage Collector
 */
-#define GCSpropagate	0
-#define GCSatomic	1
+// 垃圾收集器可能存在的一些状态
+
+#define GCSpropagate	0		/*GCSpause阶段执行完毕后，立即就将状态切换到GCSpropagate。这是个标记流程，这个流程会分步执行*/
+#define GCSatomic	1			/**/
 #define GCSswpallgc	2
 #define GCSswpfinobj	3
 #define GCSswptobefnz	4
 #define GCSswpend	5
 #define GCScallfin	6
-#define GCSpause	7
+#define GCSpause	7			/*GC的初始状态*/
 
 
 #define issweepphase(g)  \
@@ -65,7 +67,6 @@
 ** some useful bit tricks
 */
 // 一些用得到的位技巧(lua的设计者真是贴心哈)
-	
 #define resetbits(x,m)		((x) &= cast(lu_byte, ~(m)))
 #define setbits(x,m)		((x) |= (m))
 #define testbits(x,m)		((x) & (m))

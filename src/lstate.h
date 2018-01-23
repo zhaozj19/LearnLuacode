@@ -179,7 +179,7 @@ typedef struct CallInfo {
 // frealloc：虚拟机内存分配策略，可以在调用lua_newstate时指定参数，修改该策略，或者调用luaL_newstate函数使用默认的内存分配策略。也可以通过函数lua_setallocf：来设置内存分配策略
 // *ud：是frealloc的参数
 // totalbytes：当前分配的字节数(lu_mem和l_mem的定义在llimits.h中，分别是unsigned/signed整形)
-// GCdebt：已经被分配的字节，但是还没有被垃圾收集器还回来
+// GCdebt：正在被垃圾收集器处理的字节，但是还没有被垃圾收集器还回来
 // GCmemtrav：被GC过得内存数
 // GCestimate：还在使用中的非垃圾内存的估计值
 // strt：全局的字符串哈希表在，也就是那些短字符串，使得整个lua虚拟机中只有一份短字符串的实例
@@ -315,6 +315,8 @@ struct lua_State {
 /*
 ** Union of all collectable objects (only for conversions)
 */
+// 此处的GCUnion是让GCObject转换成特定类型的联合体，因为在lobject.h中定义的GCObject只是一个没有特定类型的结构体，也仅仅只包含了类型和GC标记为
+// 这里在这两种类型的基础上，增加了真实的数据类型
 union GCUnion {
   GCObject gc;  /* common header */
   struct TString ts;
@@ -329,6 +331,17 @@ union GCUnion {
 #define cast_u(o)	cast(union GCUnion *, (o))
 
 /* macros to convert a GCObject into a specific value */
+// 把GCObject对象转换成具体的类型的宏命令
+// novariant的作用是获取特定类型的后四位(因为后四位决定了类型，前面的几位有别的用途，具体请参考lobject.h)
+
+// gco2ts：将GCObject对象转换成string类型，返回地址
+// gco2u：将GCObject对象转换成userdata类型，返回地址
+// gco2lcl：将GCObject对象转换成light C function类型，返回地址
+// gco2ccl：将GCObject对象转换成C closure类型，返回地址
+// gco2cl：将GCObject对象转换成Lua closure类型，返回地址
+// gco2ts：将GCObject对象转换成table类型，返回地址
+// gco2p：将GCObject对象转换成Proto类型，返回地址
+// gco2th：将GCObject对象转换成thread类型，返回地址
 #define gco2ts(o)  \
 	check_exp(novariant((o)->tt) == LUA_TSTRING, &((cast_u(o))->ts))
 #define gco2u(o)  check_exp((o)->tt == LUA_TUSERDATA, &((cast_u(o))->u))
@@ -342,11 +355,13 @@ union GCUnion {
 
 
 /* macro to convert a Lua object into a GCObject */
+  // 把一个lua对象转换成GCObject对象的宏
 #define obj2gco(v) \
 	check_exp(novariant((v)->tt) < LUA_TDEADKEY, (&(cast_u(v)->gc)))
 
 
 /* actual number of total bytes allocated */
+  // 返回分配的真实内存，g是global_State，总内存就是已经分配的内存加上垃圾收集器正在处理但是还没有释放的内存
 #define gettotalbytes(g)	cast(lu_mem, (g)->totalbytes + (g)->GCdebt)
 
 LUAI_FUNC void luaE_setdebt (global_State *g, l_mem debt);
