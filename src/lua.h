@@ -44,13 +44,13 @@
 
 
 /* thread status */
-#define LUA_OK		0
-#define LUA_YIELD	1
-#define LUA_ERRRUN	2
-#define LUA_ERRSYNTAX	3
-#define LUA_ERRMEM	4
-#define LUA_ERRGCMM	5
-#define LUA_ERRERR	6
+#define LUA_OK		0       /*正常态*/
+#define LUA_YIELD	1       /*线程被挂起*/
+#define LUA_ERRRUN	2     /*运行时错误*/
+#define LUA_ERRSYNTAX	3   /*编译错误*/
+#define LUA_ERRMEM	4     /*内存分配错误*/
+#define LUA_ERRGCMM	5     /*在运行错误处理函数时发生错误*/
+#define LUA_ERRERR	6     /*未知错误*/
 
 
 typedef struct lua_State lua_State;

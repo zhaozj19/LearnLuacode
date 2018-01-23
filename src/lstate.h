@@ -61,7 +61,8 @@ struct lua_longjmp;  /* defined in ldo.c */
 // 额外的栈空间，用来处理TM调用和一些其他操作(TM调用是什么玩意)
 #define EXTRA_STACK   5
 
-// LUA_MINSTACK是定义在lua.h中的让C函数用的栈空间，默认20，这个地方乘以2，是要干嘛呐，好像是要让state结构体用的
+// LUA_MINSTACK是定义在lua.h中的让C函数用的栈空间，默认20，这个地方乘以2，
+// 也就是说，lua_state是有数据栈和调用栈的，而数据栈的初始大小就是BASIC_STACK_SIZE，当然不够用的时候还是可以扩展的
 #define BASIC_STACK_SIZE        (2*LUA_MINSTACK)
 
 
@@ -102,7 +103,8 @@ typedef struct stringtable {
 // CallInfo 的作用是维护一个函数调用的相关信息
 // 在lua初始化的时候，分配了一个CallInfo数组，并用L->base_ci指向该数组第一个指针，用L->end_ci指向该数组最后一个指针，用L->size_ci记录当前数组的大小，L->ci记录的是当前被调用的闭包的调用信息
 
-// StkId func :保存要调用的闭包在栈上的位置
+// StkId func :保存要调用的函数在数据栈上的位置
+              // 需要记录这个信息，是因为如果当前是一个 lua 函数，且传入的参数个数不定的时候，需要用这个位置和当前数据栈底的位置相减，获得不定参数的准确数量。
 // StkId top：闭包的栈使用限制，就是lua_push*的时候看着点，push太多就超了，可以用lua_checkstack来扩充
 // struct CallInfo *previous, *next：因为CallInfo是一个闭包的调用信息，存在调用中的调用的情况，所以这里保存一下上下文信息
 // l：供lua闭包使用的结构体
@@ -183,7 +185,9 @@ typedef struct CallInfo {
 // strt：全局的字符串哈希表在，也就是那些短字符串，使得整个lua虚拟机中只有一份短字符串的实例
 // l_registry：这是一个全局的注册表，其实就是一个全局的table(整个虚拟机中只有一个注册表),它只能被C代码访问，通常，它被用来保存那些需要在几个模块中共享的数据。比如通过luaL_newmetatable创建的元表就是放在全局的注册表中。
 // seed：为了哈希的随机化的种子
-// currentwhite：GC遍历的初始状态，默认为白色(代表待访问状态)，lu_byte的定义在llimits.h中，是unsigned char
+// currentwhite：GC遍历的初始状态，默认为白色(代表待访问状态)， 其实还有一个颜色状态是"非当前白色"（otherwhite）,这两种白色交替使用。这是为了解决假如一个对象
+// 在GC过程之的标记阶段之后创建，那它应该是白色，这样的话，这个对象就会被误删，所以增加了当前白色和非当前白色的概念，如果这个GC阶段是当前白色回收的话，那么下个GC阶段就是非当前白色回收
+// ，依次轮回。lu_byte的定义在llimits.h中，是unsigned char
 // gcstate：全局垃圾收集器的当前状态。分别有一下几种：GCSpause（暂停阶段）、GCSpropagate（传播阶段，用于遍历灰色节点检查对象的引用情况）、GCSsweepstring（字符串回收阶段）、
 //           GCSsweep（回收阶段，用于对除了字符串之外的所有其他数据类型进行回收）和GCSfinalize（终止阶段）
 // gckind：正在运行的GC种类
@@ -252,6 +256,15 @@ typedef struct global_State {
 */
 // l_G:这个是Lua的全局对象，所有的Lua_State共享一个global_State. global_State是lua虚拟机的状态
 // status： 一个thread实际上就是一个代码指令顺序执行的地方，也就是一个状态机，状态机执行的过程中会处于各种中间步骤，所以每个步骤都有一个status
+// 可能出现的状态如下：(定义在lua.h中)
+/* thread status */  
+// #define LUA_OK      0  
+// #define LUA_YIELD   1  
+// #define LUA_ERRRUN  2  
+// #define LUA_ERRSYNTAX   3  
+// #define LUA_ERRMEM  4  
+// #define LUA_ERRGCMM 5  
+// #define LUA_ERRERR  6
 // oldpc：一个thread的运行过程，就是一个解释执行指令的过程，必不可少的会有一个指针指向最后一次执行的指令的指针。
 // StkId：是TValue *类型。一个thread的运行过程，需要两个基本的Stack。分别对应DataStack和CallStack。thread数据栈的栈底就是stack，栈顶是top，而top到stack_last之间则是未使用的部分。
 // 本质上，对于一个栈，最重要的信息是：栈底，栈顶，栈空间（针对数据栈）
@@ -295,6 +308,7 @@ struct lua_State {
 };
 
 
+// 取得lua_State的global_State变量
 #define G(L)	(L->l_G)
 
 

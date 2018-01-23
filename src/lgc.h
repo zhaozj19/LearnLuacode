@@ -64,6 +64,8 @@
 /*
 ** some useful bit tricks
 */
+// 一些用得到的位技巧(lua的设计者真是贴心哈)
+	
 #define resetbits(x,m)		((x) &= cast(lu_byte, ~(m)))
 #define setbits(x,m)		((x) |= (m))
 #define testbits(x,m)		((x) & (m))
@@ -75,6 +77,8 @@
 
 
 /* Layout for bit use in 'marked' field: */
+// 这里的WHITE0BIT和WHITE1BIT就是在lstate.h中提到的两种白色状态，称为0型白色和1型白色
+// BLACKBIT是黑色标记位，FINALIZEDBIT用于标记没有被引用需要回收的udata。udata的处理与其他数据类型不同，由于它是用户传入的数据，它的回收可能会调用用户注册的GC函数，所以同一来处理
 #define WHITE0BIT	0  /* object is white (type 0) */
 #define WHITE1BIT	1  /* object is white (type 1) */
 #define BLACKBIT	2  /* object is black */
