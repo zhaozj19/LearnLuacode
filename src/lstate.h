@@ -204,8 +204,8 @@ typedef struct CallInfo {
 // *fixedgc：不需要被GC的对象列表
 // *twups：带有upvalues的线程列表
 // gcfinnum：每一步GC所调用的析构器数量
-// gcpause：两次成功GC操作之间的间隔
-// gcstepmul：控制GC的回收速度
+// gcpause：用于设置触发GC操作的阈值
+// gcstepmul：控制GC运行速度相对于内存分配速度的倍数
 // panic：出现无包含错误(unprotected errors)时，会调用这个函数。这个函数可以通过lua_atpanic来修改
 // *mainthread：指向主lua_State，或者说是主线程、主执行栈。Lua虚拟机在调用函数lua_newstate初始化全局状态global_State时也会创建一个主线程
 // *version：指向版本号的地址

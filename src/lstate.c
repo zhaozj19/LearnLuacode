@@ -28,10 +28,13 @@
 #include "ltm.h"
 
 
+
+// LUAI_GCPAUSE是g->gcpause的初始值，用于计算触发GC操作的阈值
 #if !defined(LUAI_GCPAUSE)
 #define LUAI_GCPAUSE	200  /* 200% */
 #endif
 
+// LUAI_GCMUL用于控制GC运行速度相对于内存分配的倍数
 #if !defined(LUAI_GCMUL)
 #define LUAI_GCMUL	200 /* GC runs 'twice the speed' of memory allocation */
 #endif
@@ -41,6 +44,8 @@
 ** a macro to help the creation of a unique random seed when a state is
 ** created; the seed is used to randomize hashes.
 */
+// 当一个线程被创建的时候，luai_makeseed用来创建一个独一无二的随机种子，执行字符串哈希操作时用到了这个种子
+// time(null)获取当前日期的秒数,返回类型为time_t，具体类型是平台依赖的，在这里强转成unsigned int(0~4294967295),0~2^32-1,此处默认int为32位
 #if !defined(luai_makeseed)
 #include <time.h>
 #define luai_makeseed()		cast(unsigned int, time(NULL))
@@ -51,6 +56,8 @@
 /*
 ** thread state + extra space
 */
+// 线程空间包含一个lua_State和一个额外数据空间
+// 这里的额外空间用于存放一个指针，参考资料说："程序可以把这块内存用于任何用途；而lua不会使用它"。 不懂什么意思，先记这里
 typedef struct LX {
   lu_byte extra_[LUA_EXTRASPACE];
   lua_State l;
@@ -60,6 +67,7 @@ typedef struct LX {
 /*
 ** Main thread combines a thread state and the global state
 */
+// LG结构包含一个global_State和一个lua_State(外加extra_[LUA_EXTRASPACE])，其目的是为了分配内存时，让global_State和lua_State的创建和初始化一起完成
 typedef struct LG {
   LX l;
   global_State g;
@@ -147,7 +155,11 @@ void luaE_shrinkCI (lua_State *L) {
   }
 }
 
-
+// 初始化线程
+// luaM_newvector创建40个TValue类型的内存空间，起始地址赋给stack
+// 数据栈尺寸的话就是BASIC_STACK_SIZE，并且把这40各元素全置为nil
+// 数据栈的栈顶就是栈底stack，数据栈的上限为L1->stack + L1->stacksize - EXTRA_STACK;此处空一个额外的地址空间备用
+// 接着初始化调用函数的信息列表
 static void stack_init (lua_State *L1, lua_State *L) {
   int i; CallInfo *ci;
   /* initialize stack array */
@@ -218,24 +230,26 @@ static void f_luaopen (lua_State *L, void *ud) {
 ** preinitialize a thread with consistent values without allocating
 ** any memory (to avoid errors)
 */
+// 用一些没有分配任何内存的缺省值(避免错误)预初始化一个线程
+
 static void preinit_thread (lua_State *L, global_State *g) {
-  G(L) = g;
-  L->stack = NULL;
-  L->ci = NULL;
-  L->nci = 0;
-  L->stacksize = 0;
+  G(L) = g;               /*设置L的全局状态机g*/
+  L->stack = NULL;        /*设置L的数据栈的栈底*/
+  L->ci = NULL;           /*设置L的当前运行函数的调用信息*/
+  L->nci = 0;             /*设置L的'ci'列表的项数*/
+  L->stacksize = 0;       /*设置L的数据栈的大小*/
   L->twups = L;  /* thread has no upvalues */
-  L->errorJmp = NULL;
-  L->nCcalls = 0;
-  L->hook = NULL;
-  L->hookmask = 0;
+  L->errorJmp = NULL;     /*设置L的错误恢复点*/
+  L->nCcalls = 0;         /*设置L的CallStack动态增减过程中调用C函数的个数*/
+  L->hook = NULL;         /*hook是用来调试钩子的，具体细节我不清楚*/
+  L->hookmask = 0;        /*hookmask我也不清楚，后面再补充*/
   L->basehookcount = 0;
   L->allowhook = 1;
   resethookcount(L);
-  L->openupval = NULL;
+  L->openupval = NULL;    /*设置L的open upvalues列表*/
   L->nny = 1;
-  L->status = LUA_OK;
-  L->errfunc = 0;
+  L->status = LUA_OK;     /*设置L的初始状态*/
+  L->errfunc = 0;         /*设置L的当亲错误的函数句柄 (stack index)*/
 }
 
 
@@ -291,7 +305,27 @@ void luaE_freethread (lua_State *L, lua_State *L1) {
   luaM_free(L, l);
 }
 
-
+// lua_newstate为我们创建并初始化一个lua虚拟机
+// f指定虚拟机中的内存分配策略，第一块申请下来的内存用来存储global_State(全局状态机)和lua_State(主线程)
+// 为了避免内存碎片的产生，同时减少内存分配和释放的次数，lua采用了一个小技巧：利用一个LG结构，把分配lua_State和global_State的行为联结在一起
+// 然后得出来一个LG的内存区域，包含了global_State和lua_State，并用L和g指针指向它们，并将当前g的当前白色设置为WHITE0BIT(要用bitmask处理一下)
+// 接下来，设置L的属性
+// L->marked = luaC_white(g) 设置L的GC颜色
+// preinit_thread(L, g)  预初始化L
+// g->frealloc = f  设置全局状态机的内存分配策略
+// g->ud = ud  ud是frealloc的参数
+// g->mainthread = L  设置g的主线程
+// g->seed = makeseed(L) 设置g的随机种子
+// g->gcrunning = 0  因为刚创建state时，没有GC，所以设为0
+// g->GCestimate = 0 使用的内存的估计值
+// g->strt.size = g->strt.nuse = 0 全局字符串表的大小和当前数量
+// g->strt.hash = NULL  字符串数组设为NULL
+// setnilvalue(&g->l_registry) 全局的注册表设为nil
+// g->panic = NULL 无保护错误发生时的处理函数
+// g->version = NULL 版本号
+// g->gckind = KGC_NORMAL  正在运行的GC种类
+// g->allgc = g->finobj = g->tobefnz = g->fixedgc = NULL 和GC相关的属性，参考lstate.h
+// 下面的设置就参考lstate.h吧
 LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   int i;
   lua_State *L;
@@ -328,7 +362,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   g->gcfinnum = 0;
   g->gcpause = LUAI_GCPAUSE;
   g->gcstepmul = LUAI_GCMUL;
-  for (i=0; i < LUA_NUMTAGS; i++) g->mt[i] = NULL;
+  for (i=0; i < LUA_NUMTAGS; i++) g->mt[i] = NULL;  /*设置9种数据类型的元表*/
   if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK) {
     /* memory allocation error: free partial state */
     close_state(L);
@@ -337,7 +371,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   return L;
 }
 
-
+// 关闭主线程
 LUA_API void lua_close (lua_State *L) {
   L = G(L)->mainthread;  /* only the main thread can be closed */
   lua_lock(L);

@@ -800,6 +800,8 @@
 ** a Lua state with very fast access.
 ** CHANGE it if you need a different size.
 */
+// LUA_EXTRASPACE定义了一个与lua状态关联的原始内存区域的大小，其访问速度非常快。如果你需要一个不同的尺寸就改变它
+// sizeof(void *)的大小取决于目标平台
 #define LUA_EXTRASPACE		(sizeof(void *))
 
 

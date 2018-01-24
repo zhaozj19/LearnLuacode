@@ -67,6 +67,8 @@
 ** some useful bit tricks
 */
 // 一些用得到的位技巧(lua的设计者真是贴心哈)
+// bitmask是让WHITE0BIT等标记为，转换成二进制位的形式，便于后面的操作
+// bit2mask让0型白色和1型白色进行或运算
 #define resetbits(x,m)		((x) &= cast(lu_byte, ~(m)))
 #define setbits(x,m)		((x) |= (m))
 #define testbits(x,m)		((x) & (m))
@@ -86,6 +88,7 @@
 #define FINALIZEDBIT	3  /* object has been marked for finalization */
 /* bit 7 is currently used by tests (luaL_checkmemory) */
 
+// WHITEBITS是0型白色和1型白色的组合，用于判断，当前是否为白色
 #define WHITEBITS	bit2mask(WHITE0BIT, WHITE1BIT)
 
 
@@ -103,6 +106,7 @@
 #define changewhite(x)	((x)->marked ^= WHITEBITS)
 #define gray2black(x)	l_setbit((x)->marked, BLACKBIT)
 
+// 返回当前白色是0型白色还是1型白色
 #define luaC_white(g)	cast(lu_byte, (g)->currentwhite & WHITEBITS)
 
 
