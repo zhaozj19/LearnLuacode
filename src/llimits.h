@@ -239,6 +239,7 @@ typedef unsigned long Instruction;
 ** LUAI_EXTRASPACE and need to do something extra when a thread is
 ** created/deleted/resumed/yielded.
 */
+// 下面这些宏允许在进程里面执行特殊的用户行为，当你定义LUAI_EXTRASPACE并且需要做一些额外的事情的时候，比如说创建/删除/重启/挂起进程的时候
 #if !defined(luai_userstateopen)
 #define luai_userstateopen(L)		((void)L)
 #endif

@@ -127,6 +127,8 @@ CallInfo *luaE_extendCI (lua_State *L) {
 /*
 ** free all CallInfo structures not in use by a thread
 */
+// 释放进程里面没有用到的函数调用信息
+// 释放的全是当前调用函数的下面的函数，我觉得是函数返回的时候，最深处的函数就没用了，其调用信息的结构体可以释放了
 void luaE_freeCI (lua_State *L) {
   CallInfo *ci = L->ci;
   CallInfo *next = ci->next;
@@ -180,6 +182,9 @@ static void stack_init (lua_State *L1, lua_State *L) {
 }
 
 
+// freestack释放进程的数据栈和调用栈
+// luaE_freeCI释放函数调用信息(这里判断了L的调用函数信息体的数量是否为0，也就是说是否还存在函数调用信息)
+// 最后调用luaM_freearray释放L的数据栈
 static void freestack (lua_State *L) {
   if (L->stack == NULL)
     return;  /* stack not completely built yet */
@@ -193,6 +198,7 @@ static void freestack (lua_State *L) {
 /*
 ** Create registry table and its predefined values
 */
+// 创建一个注册表并且预定义它的值
 static void init_registry (lua_State *L, global_State *g) {
   TValue temp;
   /* create registry */
@@ -212,6 +218,13 @@ static void init_registry (lua_State *L, global_State *g) {
 ** open parts of the state that may cause memory-allocation errors.
 ** ('g->version' != NULL flags that the state was completely build)
 */
+// 打开一个进程
+// stack_init(L, L) 初始化进程
+// init_registry(L, g) 预初始化注册表
+// luaS_init(L)  初始化字符串缓存
+// luaT_init(L)  初始化进程的元方法
+// luaX_init(L)  设置进程的环境
+// luai_userstateopen打开进程
 static void f_luaopen (lua_State *L, void *ud) {
   global_State *g = G(L);
   UNUSED(ud);
@@ -252,7 +265,12 @@ static void preinit_thread (lua_State *L, global_State *g) {
   L->errfunc = 0;         /*设置L的当亲错误的函数句柄 (stack index)*/
 }
 
-
+// 关闭一个进程L
+// 调用luaF_close关闭L上的upvalues，具体是怎么关闭的到时候再看lfun.c里面的实现
+// 调用luaC_freeallobjects收集栈上的对象，放入对应的gc链表里待处理
+// luaM_freearray释放进程的字符串表
+// 然后调用freestack释放L的数据栈和调用栈
+// 最后把LG的内存给释放掉
 static void close_state (lua_State *L) {
   global_State *g = G(L);
   luaF_close(L, L->stack);  /* close all upvalues for this thread */
@@ -265,7 +283,9 @@ static void close_state (lua_State *L) {
   (*g->frealloc)(g->ud, fromstate(L), sizeof(LG), 0);  /* free main block */
 }
 
-
+// lua_newthread新建一个线程，它会将新线程作为一个类型为"thread"的值压入栈L中
+// 为新线程L1分配内存，颜色标记设置为当前白色，类型设置为LUA_TTHREAD
+// 把L1加入g的gc列表里
 LUA_API lua_State *lua_newthread (lua_State *L) {
   global_State *g = G(L);
   lua_State *L1;
