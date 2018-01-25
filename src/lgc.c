@@ -67,6 +67,14 @@
 #define makewhite(g,x)	\
  (x->marked = cast_byte((x->marked & maskcolors) | luaC_white(g)))
 
+// 在gc中，灰色是非黑即白的存在
+// 0型白色：0001
+// 1型白色：0010
+// 黑色：   0100
+// 那么灰色就是除了这三种的别的表示(0000)
+// white2gray：把白色转换为灰色
+// black2gray：把黑色转换成灰色
+// 具体操作就是设法把目前颜色中包含白色和黑色的位去掉就变成灰色了(就是说灰色是0000)
 #define white2gray(x)	resetbits(x->marked, WHITEBITS)
 #define black2gray(x)	resetbit(x->marked, BLACKBIT)
 
@@ -208,8 +216,9 @@ void luaC_fix (lua_State *L, GCObject *o) {
 // 创建一个可以被GC的对象
 // 设置一下对象的垃圾回收标志marked
 // 类型tt
-// next地址
+// next地址(此处的设置是从头插入allgc链表中)
 // 然后把这个对象链接在全局g的allgc链表里
+// UpValue和udata类型的创建不同于此
 GCObject *luaC_newobj (lua_State *L, int tt, size_t sz) {
   global_State *g = G(L);
   GCObject *o = cast(GCObject *, luaM_newobject(L, novariant(tt), sz));
@@ -237,6 +246,12 @@ GCObject *luaC_newobj (lua_State *L, int tt, size_t sz) {
 ** to appropriate list to be visited (and turned black) later. (Open
 ** upvalues are already linked in 'headuv' list.)
 */
+// 标记一个对象。能够访问的Userdata,strings和closed upvalues，在这设为黑色
+// 其他的对象设置为灰色并且加入合适的链表中待后续访问(访问时置为黑色)
+// (Open upvalues已经被链接到'headuv'链表中)
+// 首先就把o置为灰色，然后根据o的类型分别处理
+// 字符串:由于字符串是不存在对其他数据类型的引用,所以直接设为黑色即可.再设置一下g的gc过得内存数
+
 static void reallymarkobject (global_State *g, GCObject *o) {
  reentry:
   white2gray(o);
@@ -339,6 +354,9 @@ static void remarkupvals (global_State *g) {
 /*
 ** mark root set and reset all gray lists, to start a new collection
 */
+// GC从头开始需要做的初始化工作
+// 灰色链表以及各种虚表全部重置
+// 再把主线程和全局注册表标记为灰色
 static void restartcollection (global_State *g) {
   g->gray = g->grayagain = NULL;
   g->weak = g->allweak = g->ephemeron = NULL;
@@ -1046,6 +1064,7 @@ static lu_mem sweepstep (lua_State *L, global_State *g,
 }
 
 
+// GC流程的入口函数。每一次进入GC时，都会根据当前GC所处的阶段来进行不同的处理
 static lu_mem singlestep (lua_State *L) {
   global_State *g = G(L);
   switch (g->gcstate) {

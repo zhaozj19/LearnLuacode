@@ -240,7 +240,7 @@ typedef struct global_State {
   struct lua_State *twups;  /* list of threads with open upvalues */
   unsigned int gcfinnum;  /* number of finalizers to call in each GC step */
   int gcpause;  /* size of pause between successive GCs */
-  int gcstepmul;  /* GC 'granularity' */
+  int gcstepmul;  /* GC 'granularity' */ 
   lua_CFunction panic;  /* to be called in unprotected errors */
   struct lua_State *mainthread;
   const lua_Number *version;  /* pointer to version number */

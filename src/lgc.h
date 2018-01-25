@@ -24,6 +24,16 @@
 ** is not being enforced (e.g., sweep phase).
 */
 
+/*
+	收集对象可能拥有下列三种颜色中的一种：
+	白色：意味着对象还没被扫描
+	灰色：意味着对象已经被扫描，但是它的引用对象还没被标记
+	黑色：意味着对象被扫描过了，它的引用对象也被扫描过了
+	垃圾收集器的重点在于，在标记对象的时候，黑色对象从不会引用白色对象，
+	而且，任何一个灰色对象都一定被放在'灰色列表'里面(包含灰色节点，需要一次性处理的灰色节点，值是弱引用的table，值和键都是弱引用的table，键是弱引用的table)
+	因此在结束垃圾收集周期之前，上述这些对象都能够被访问。
+*/
+
 
 
 /* how much to allocate before next GC step */
@@ -37,7 +47,13 @@
 ** Possible states of the Garbage Collector
 */
 // 垃圾收集器可能存在的一些状态
-
+// GCSpause：GC流程的起始步骤，只是标记系统的根节点
+// GCSpropagate：GC的遍历灰色链表中对象的引用情况
+// GCSswpallgc：回收大部分gc对象
+// GCSswpfinobj：回收带有析构器的对象
+// GCSswptobefnz：回收用户数据的对象
+// GCSswpend：这个也是回收阶段
+// GCScallfin：终止阶段
 #define GCSpropagate	0		/*GCSpause阶段执行完毕后，立即就将状态切换到GCSpropagate。这是个标记流程，这个流程会分步执行*/
 #define GCSatomic	1			/**/
 #define GCSswpallgc	2
@@ -48,6 +64,7 @@
 #define GCSpause	7			/*GC的初始状态*/
 
 
+// 判断当前GC阶段是否为扫描阶段
 #define issweepphase(g)  \
 	(GCSswpallgc <= (g)->gcstate && (g)->gcstate <= GCSswpend)
 
@@ -92,6 +109,9 @@
 #define WHITEBITS	bit2mask(WHITE0BIT, WHITE1BIT)
 
 
+// iswhite判断是否为白色
+// isblack判断是否为黑色
+// isgray判断是否为灰色(根据里面包含不包含黑色和白色位来判断)
 #define iswhite(x)      testbits((x)->marked, WHITEBITS)
 #define isblack(x)      testbit((x)->marked, BLACKBIT)
 #define isgray(x)  /* neither white nor black */  \
