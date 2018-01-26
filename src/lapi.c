@@ -1041,6 +1041,22 @@ LUA_API int lua_status (lua_State *L) {
 ** Garbage-collection function
 */
 
+// lua_gc控制垃圾收集器的某些行为
+// 它会在luaB_collectgarbage中根据用户传进来的值被调用
+// LUA_GCSTOP：停止收集器。gcrunning设为0就代表停止，这个值代表的垃圾收集器的状态
+// LUA_GCRESTART：重启收集器。gcrunning设为1，并且g的GCdebt设置0，GCdebt是收集器收集的内存数
+// LUA_GCCOLLECT：执行一轮完整的垃圾收集周期，收集并释放所有不可到达的对象。
+// LUA_GCCOUNT：返回lua当前使用的内存数量，以千字节为单位(得出的字节右移10位)。这个数字包含了已死亡但尚未回收的对象
+// LUA_GCCOUNTB：返回lua当前使用的内存数量的千字节余数。(还是根据未操作，筛出来10位之内的位，就是千字节余数)
+// LUA_GCSTEP：执行一些垃圾收集工作。工作的总量由第三个参数data以一种模糊的方式指定(较大的值表示更多的工作)
+// LUA_GCSETPAUSE：设置收集器的pause参数，其值由data参数指定，表示一个百分比。当data为100时，pause参数设为1(100%)
+// LUA_GCSETSTEPMUL：设置收集器的stepmul参数，其值也是由data参数指定，表示一个百分比
+// tips:pause和stepmul这两个参数可用于控制收集器的某些特性。它们仍处于试验阶段。
+  // pause参数控制了收集器在完成一轮收集至启动下一轮收集间等待的时间。lua用一种算法来决定是否开始新一轮的收集。假设，一轮收集结束后，lua正在使用m千字节，那么它会等到使用
+  // m*pause千字节时再开始新一轮的收集。也就是说将pause设置为100%，lua会在一轮结束之后马上开始新一轮的收集。而如果将pause设置为200%，那么lua会在使用到当前内存两倍时再启动收集器
+  // ，这也是默认行为。如果想用更多的CPU时间来换取较小的内存用量，那么可以将pause设置的小一点。通常应该将这个值维持在100%~300%之间。
+  // stepmul参数控制了收集器的工作速度，这个速度是一个相对于内存分配的速度。这个值越大收集器步进的速度越快。像100000000%这样的巨值会使收集器变成一个非增量式的收集器。默认值是
+  // 200%。小于100%的值会使收集器变得很慢，慢到无法完成一轮收集。
 LUA_API int lua_gc (lua_State *L, int what, int data) {
   int res = 0;
   global_State *g;

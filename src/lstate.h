@@ -213,6 +213,8 @@ typedef struct CallInfo {
 // *tmname[TM_N]：一些特殊方法的方法名数组
 // *mt[LUA_NUMTAGS]：基础类型的元表数组
 // *strcache[STRCACHE_N][STRCACHE_M]：缓存字符串数组
+// tips:lua在实际实现时，其实不只用一条链表维系所有GCObject。这是因为string类型有其特殊性。所有的string放在一张大的hash表中。它需要保证系统中不会有值相同的string被创建两份。
+      // 顾string是单独被管理的（strt），而不串在GCObject的链表中
 typedef struct global_State {
   lua_Alloc frealloc;  /* function to reallocate memory */
   void *ud;         /* auxiliary data to 'frealloc' */
