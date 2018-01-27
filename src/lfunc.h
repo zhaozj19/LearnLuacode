@@ -11,9 +11,11 @@
 #include "lobject.h"
 
 
+// 返回C闭包的大小，因为CClosure中已经包含了一个UpVals的元素，所以这里n-1
 #define sizeCclosure(n)	(cast(int, sizeof(CClosure)) + \
                          cast(int, sizeof(TValue)*((n)-1)))
 
+// 返回lua闭包的大小，因为LClosure已经包含了一个UpVals的元素，所以这里n-1
 #define sizeLclosure(n)	(cast(int, sizeof(LClosure)) + \
                          cast(int, sizeof(TValue *)*((n)-1)))
 
@@ -32,7 +34,10 @@
 /*
 ** Upvalues for Lua closures
 */
-struct UpVal {
+// lua闭包的UpValues的定义(UpVal和环境息息相关)
+// 在close状态下，使用的是TValue类型的数据；而在open状态下，使用的是open结构体和*v(open和close状态的判断当前UpVal所处的函数是否还存在)
+// refcount是这个UpVal对对象的引用数量
+struct UpVal { 
   TValue *v;  /* points to stack or to its own value */
   lu_mem refcount;  /* reference counter */
   union {

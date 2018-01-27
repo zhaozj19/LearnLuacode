@@ -63,6 +63,8 @@
 ** 'makewhite' erases all color bits then sets only the current white
 ** bit
 */
+// maskcolors擦除0000 0111的后三位，因为黑色和白色用到了后三位
+// makewhite擦除所有颜色位，然后设置当前白色位
 #define maskcolors	(~(bitmask(BLACKBIT) | WHITEBITS))
 #define makewhite(g,x)	\
  (x->marked = cast_byte((x->marked & maskcolors) | luaC_white(g)))
@@ -696,7 +698,9 @@ static void clearvalues (global_State *g, GCObject *l, GCObject *f) {
   }
 }
 
-
+// 释放一个UpVal
+// UpVal为打开状态时:只把它的引用计数减1
+// UpVal为关闭状态时,释放uv占用的内存
 void luaC_upvdeccount (lua_State *L, UpVal *uv) {
   lua_assert(uv->refcount > 0);
   uv->refcount--;
@@ -704,7 +708,8 @@ void luaC_upvdeccount (lua_State *L, UpVal *uv) {
     luaM_free(L, uv);
 }
 
-
+// 先处理UpVals,然后释放整个lua闭包所占的内存
+// sizeLclosure返回lua闭包的内存大小，定义在lfunc.h中
 static void freeLclosure (lua_State *L, LClosure *cl) {
   int i;
   for (i = 0; i < cl->nupvalues; i++) {
@@ -716,6 +721,16 @@ static void freeLclosure (lua_State *L, LClosure *cl) {
 }
 
 
+// 擦除一个GCObject
+// luaF_freeproto：擦除一个函数原型对象
+// LUA_TLCL：擦除一个Lua closure(释放lua闭包的时候，需要先释放对应的UpVals)
+// LUA_TCCL：擦除一个C closure
+// LUA_TTABLE：擦除一个table
+// LUA_TTHREAD：擦除一个thread
+// LUA_TUSERDATA：擦除一个userdata
+// LUA_TSHRSTR：擦除一个short strings
+// LUA_TLNGSTR：擦除一个long strings
+// 涉及到具体函数，到对应的文件再分析
 static void freeobj (lua_State *L, GCObject *o) {
   switch (o->tt) {
     case LUA_TPROTO: luaF_freeproto(L, gco2p(o)); break;
@@ -754,6 +769,13 @@ static GCObject **sweeplist (lua_State *L, GCObject **p, lu_mem count);
 ** collection cycle. Return where to continue the traversal or NULL if
 ** list is finished.
 */
+// 从一个正在擦除死亡对象(所谓死亡对象就是一个被标记为之前的白色的对象)的GCObjects链表中尽可能多的扫描'count'个元素
+// 扫描过程就是把所有非死亡的对象标记为当前白色，为下一次垃圾收集周期做准备。
+// 然后返回当前遍历的位置或NULL（如果链表遍历完的话）
+// ow保存当前白色，white保存当前白色
+// curr指针来保存当前正在遍历的GC对象的指针,然后根据当前对象的marked标记来判断该对象是否死亡，如果已经是死亡对象的话，让p指向下一个GCObject，顺便擦除当前对象的内存
+// 如果没有不是上一次循环剩下的死对象的话，就把它标记为当前白色，接着继续处理下个GCObject
+// 总之，sweeplist就是处理gc链表中的对象的颜色的，如果遇到不需要处理颜色的直接释放就好了(比如，在上一个周期结束后为白色的来不及释放的对象)
 static GCObject **sweeplist (lua_State *L, GCObject **p, lu_mem count) {
   global_State *g = G(L);
   int ow = otherwhite(g);
@@ -978,6 +1000,7 @@ static void setpause (global_State *g) {
 ** not need to skip objects created between "now" and the start of the
 ** real sweep.
 */
+// 进入第一个扫描阶段，调用sweeplist让指针指向内部链表的对象，因此实际的扫描不需要跳过此刻和扫描阶段之间创造的对象
 static void entersweep (lua_State *L) {
   global_State *g = G(L);
   g->gcstate = GCSswpallgc;
@@ -1124,6 +1147,7 @@ static lu_mem singlestep (lua_State *L) {
 ** advances the garbage collector until it reaches a state allowed
 ** by 'statemask'
 */
+// 把垃圾收集器的状态提前到'statemask'允许的状态
 void luaC_runtilstate (lua_State *L, int statesmask) {
   global_State *g = G(L);
   while (!testbit(statesmask, g->gcstate))
@@ -1179,6 +1203,11 @@ void luaC_step (lua_State *L) {
 ** to sweep all objects to turn them back to white (as white has not
 ** changed, nothing will be collected).
 */
+
+// 执行一个完整的GC周期，如果'isemergency'为真，就设置一个flag来避免在一些非预期的方式上(运行finalizers和缩小一些结构)可能会改变解释器的状态的行为
+// 在执行收集器之前，检查'keepinvariant'是否为真，如果为真，可能有一些对象被标记为黑色了，因此收集器就不得不扫描所有对象把那些黑色的变为白色
+// 也就是说，gc再开始新一轮的完整周期的时候，不能出现对象被标记为黑色的情况
+// 再开始一个新的周期之后，需要停止任何sweep阶段
 void luaC_fullgc (lua_State *L, int isemergency) {
   global_State *g = G(L);
   lua_assert(g->gckind == KGC_NORMAL);

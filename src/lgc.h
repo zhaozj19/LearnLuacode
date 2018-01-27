@@ -29,7 +29,7 @@
 	白色：意味着对象还没被扫描
 	灰色：意味着对象已经被扫描，但是它的引用对象还没被标记
 	黑色：意味着对象被扫描过了，它的引用对象也被扫描过了
-	垃圾收集器的重点在于，在标记对象的时候，黑色对象从不会引用白色对象，
+	垃圾收集器的不变量就是，在标记阶段，黑色对象从不会引用白色对象，
 	而且，任何一个灰色对象都一定被放在'灰色列表'里面(包含灰色节点，需要一次性处理的灰色节点，值是弱引用的table，值和键都是弱引用的table，键是弱引用的table)
 	因此在结束垃圾收集周期之前，上述这些对象都能够被访问。
 */
@@ -77,6 +77,10 @@
 ** all objects are white again.
 */
 
+// keepinvariant宏告诉用户主不变量(暂且这么翻译吧，不太准确)不能被改变(main invariant代表着白色对象不能指向黑色对象这一特性)
+// 在一个收集收集周期中，在扫描阶段中，当变成白色的对象仍然可能会指向黑色对象时，就会破坏这个不变量
+// 不变量在扫描结束和所有对象再次变成白色的时候被恢复
+	// tips：上面有说main invariant代表在标记阶段黑色对象不能指向白色对象(到底哪个才是正确的含义呐？？？)
 #define keepinvariant(g)	((g)->gcstate <= GCSatomic)
 
 
@@ -119,6 +123,9 @@
 
 #define tofinalize(x)	testbit((x)->marked, FINALIZEDBIT)
 
+
+// otherwhite返回另一种白色(非当前白色)
+// isdeadm判断某一个GC对象是否已经死亡(判定标准是对象的颜色是否等于非当前白色)。ow是otherwhite的缩写
 #define otherwhite(g)	((g)->currentwhite ^ WHITEBITS)
 #define isdeadm(ow,m)	(!(((m) ^ WHITEBITS) & (ow)))
 #define isdead(g,v)	isdeadm(otherwhite(g), (v)->marked)

@@ -544,6 +544,12 @@ typedef struct CClosure {
 } CClosure;
 
 
+// lua闭包的定义：
+// Proto指针：用于保存分析阶段生成的字节码等信息
+// UpVal指针：用于保存这个Closure相关的UpValue
+// tips:在lua中，函数是第一类值，这意味着定义函数和其他普通类型是一样的，区别在于函数对应的数据值是对应的函数体指令罢了。
+// 因此，以前所谓的"相同函数"，如果更严格地说，应该指的是使用同一份函数代码，即同一个Proto指针，但是它们的UpValue并不见得一样，而UpValue正是函数执行时的环境信息之一
+// 严格的说，Lua中 只有闭包而不存在"函数"，因为函数只是一种特殊的闭包
 typedef struct LClosure {
   ClosureHeader;
   struct Proto *p;
