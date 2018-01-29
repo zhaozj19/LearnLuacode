@@ -341,7 +341,7 @@ union GCUnion {
 // gco2lcl：将GCObject对象转换成light C function类型，返回地址
 // gco2ccl：将GCObject对象转换成C closure类型，返回地址
 // gco2cl：将GCObject对象转换成Lua closure类型，返回地址
-// gco2ts：将GCObject对象转换成table类型，返回地址
+// gco2t：将GCObject对象转换成table类型，返回地址
 // gco2p：将GCObject对象转换成Proto类型，返回地址
 // gco2th：将GCObject对象转换成thread类型，返回地址
 #define gco2ts(o)  \

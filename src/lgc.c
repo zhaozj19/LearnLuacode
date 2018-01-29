@@ -93,12 +93,14 @@
 #define markvalue(g,o) { checkconsistency(o); \
   if (valiswhite(o)) reallymarkobject(g,gcvalue(o)); }
 
+// 如果对象为白色的话(0和1都可以)，就把传进来的t通过reallymarkobject设置为对应的颜色
 #define markobject(g,t)	{ if (iswhite(t)) reallymarkobject(g, obj2gco(t)); }
 
 /*
 ** mark an object that can be NULL (either because it is really optional,
 ** or it was stripped as debug info, or inside an uncompleted structure)
 */
+// 标记一个可以设为NULL的对象(要么它是可选的，要么它被剥离为调试信息，要么被包含在一个未完成的结构中)
 #define markobjectN(g,t)	{ if (t) markobject(g,t); }
 
 static void reallymarkobject (global_State *g, GCObject *o);
@@ -120,6 +122,7 @@ static void reallymarkobject (global_State *g, GCObject *o);
 /*
 ** link collectable object 'o' into list pointed by 'p'
 */
+// 把'o'插入到p指向的链表的表头
 #define linkgclist(o,p)	((o)->gclist = (p), (p) = obj2gco(o))
 
 
@@ -308,6 +311,8 @@ static void reallymarkobject (global_State *g, GCObject *o) {
 /*
 ** mark metamethods for basic types
 */
+// 把lua中的9种基础类型的元方法做下标记
+// mt是9中基础类型的元方法数组，类型是Table *
 static void markmt (global_State *g) {
   int i;
   for (i=0; i < LUA_NUMTAGS; i++)
@@ -318,6 +323,7 @@ static void markmt (global_State *g) {
 /*
 ** mark all objects in list of being-finalized
 */
+// 标记所有需要被GC的用户数据的链表
 static void markbeingfnz (global_State *g) {
   GCObject *o;
   for (o = g->tobefnz; o != NULL; o = o->next)
@@ -359,6 +365,8 @@ static void remarkupvals (global_State *g) {
 // GC从头开始需要做的初始化工作
 // 灰色链表以及各种虚表全部重置
 // 再把主线程和全局注册表标记为灰色
+// markmt把g中的各种类型的元表标记为灰色
+// markbeingfnz标记上一个循环中剩余的finalizing object
 static void restartcollection (global_State *g) {
   g->gray = g->grayagain = NULL;
   g->weak = g->allweak = g->ephemeron = NULL;
@@ -581,6 +589,8 @@ static lu_mem traversethread (global_State *g, lua_State *th) {
 ** traverse one gray object, turning it to black (except for threads,
 ** which are always gray).
 */
+// 遍历一个灰色对象，把它置为黑色(进程除外，它一直是灰色)
+
 static void propagatemark (global_State *g) {
   lu_mem size;
   GCObject *o = g->gray;
@@ -1087,7 +1097,9 @@ static lu_mem sweepstep (lua_State *L, global_State *g,
 }
 
 
-// GC流程的入口函数。每一次进入GC时，都会根据当前GC所处的阶段来进行不同的处理
+// GC流程的单步阶段的入口函数。每一次进入GC时，都会根据当前GC所处的阶段来进行不同的处理
+// GCSpause：GC的初始化阶段，首先把当前被GC管理的内存数设置为字符串缓存占用的内存，然后调用restartcollection，然后设置下一个GC阶段的标识GCSpropagate(标记阶段)
+// GCSpropagate：GC的标记阶段，首先重置GCmemtrav字段，然后调用propagatemark
 static lu_mem singlestep (lua_State *L) {
   global_State *g = G(L);
   switch (g->gcstate) {
@@ -1147,7 +1159,7 @@ static lu_mem singlestep (lua_State *L) {
 ** advances the garbage collector until it reaches a state allowed
 ** by 'statemask'
 */
-// 把垃圾收集器的状态提前到'statemask'允许的状态
+// 把垃圾收集器的状态提前，一直到'statemask'允许的状态(statemask可能包含多个状态位)
 void luaC_runtilstate (lua_State *L, int statesmask) {
   global_State *g = G(L);
   while (!testbit(statesmask, g->gcstate))
@@ -1208,6 +1220,8 @@ void luaC_step (lua_State *L) {
 // 在执行收集器之前，检查'keepinvariant'是否为真，如果为真，可能有一些对象被标记为黑色了，因此收集器就不得不扫描所有对象把那些黑色的变为白色
 // 也就是说，gc再开始新一轮的完整周期的时候，不能出现对象被标记为黑色的情况
 // 再开始一个新的周期之后，需要停止任何sweep阶段
+// luaC_runtilstate(L, bitmask(GCSpause)); 把之前未完成的阶段执行完成
+// luaC_runtilstate(L, ~bitmask(GCSpause));  开始一个新的GC循环，并做一些初始工作
 void luaC_fullgc (lua_State *L, int isemergency) {
   global_State *g = G(L);
   lua_assert(g->gckind == KGC_NORMAL);
