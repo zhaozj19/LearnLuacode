@@ -21,6 +21,7 @@
 
 
 /* test whether thread is in 'twups' list */
+// 判断'twups'链表是否是一个进程链表
 #define isintwups(L)	(L->twups != L)
 
 
@@ -28,6 +29,7 @@
 ** maximum number of upvalues in a closure (both C and Lua). (Value
 ** must fit in a VM register.)
 */
+// 闭包里面引用最大的upvalue的数量
 #define MAXUPVAL	255
 
 
@@ -49,6 +51,7 @@ struct UpVal {
   } u;
 };
 
+// 判断当前的UpVal是不是open状态，判断依据是UpVal指向的当前值的指针是否等于关闭状态下的value
 #define upisopen(up)	((up)->v != &(up)->u.value)
 
 

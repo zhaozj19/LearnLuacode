@@ -39,6 +39,8 @@
 ** (-LUAI_MAXSTACK is the minimum valid index; we keep some free empty
 ** space after that to help overflow detection)
 */
+// 假的索引
+// -LUAI_MAXSTACK是合法索引的最小值；我们保留一个空余的空间是为了对溢出做准备
 #define LUA_REGISTRYINDEX	(-LUAI_MAXSTACK - 1000)
 #define lua_upvalueindex(i)	(LUA_REGISTRYINDEX - (i))
 

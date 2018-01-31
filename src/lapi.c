@@ -37,6 +37,7 @@ const char lua_ident[] =
 
 
 /* value at a non-valid index */
+  // 不合法的vaild对应的nil对象
 #define NONVALIDVALUE		cast(TValue *, luaO_nilobject)
 
 /* corresponding test */
@@ -56,7 +57,11 @@ const char lua_ident[] =
 #define api_checkstackindex(l, i, o)  \
 	api_check(l, isstackindex(i, o), "index not in the stack")
 
-
+// 通过L栈中idx索引来得到对应的值的指针
+// 如果idx大于0就直接在当前调用的函数栈空间找到TValue
+// 当 LUA_REGISTRYINDEX < index <= 0 时，在当前 function 的栈空间逆向找对应的 TValue。(就是第一种情况的负数索引)
+// 当 index == LUA_REGISTRYINDEX 时  返回 registry
+// 否则( index < LUA_REGISTRYINDEX 时 ) 查找 upvalue
 static TValue *index2addr (lua_State *L, int idx) {
   CallInfo *ci = L->ci;
   if (idx > 0) {
@@ -248,7 +253,7 @@ LUA_API void lua_pushvalue (lua_State *L, int idx) {
 ** access functions (stack -> C)
 */
 // 返回idx处的数据类型
-// index2adr就是返回index处数据的地址
+// index2addr就是返回index处数据的地址
 // StkId的类型是TValue指针数据（定义在lobject.c中）  typedef TValue *StkId
 // 判断o是不是nil的指针，不是的话在调用ttype返回就可以了
 

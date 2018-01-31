@@ -124,6 +124,8 @@ struct GCObject {
 ** Union of all Lua values
 */
 // 然后GCObject和其他不需要进行进行GC的数据放在一个联合体里面构成了Value类型
+// 在lua中，一共有9种数据类型，分别为nil、boolean、lightuserdata、number、string、table、function、userdata和thread
+// 其中，只有string、table、function、thread四种在vm中以引用方式共享，是需要被GC管理回收的对象。其他类型都是以值的形式存在
 typedef union Value {
   GCObject *gc;    /* collectable objects */
   void *p;         /* light userdata */

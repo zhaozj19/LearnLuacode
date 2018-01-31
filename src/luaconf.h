@@ -788,6 +788,8 @@
 ** its only purpose is to stop Lua from consuming unlimited stack
 ** space (and to reserve some numbers for pseudo-indices).
 */
+// LUAI_MAXSTACK是lua stack中元素数量的限制
+// 如果你需要不同的限制那就改变它，这个限制是任意的，它唯一的目的就是组织lua占用限制外的空间(也是为了为那些假索引保存空间)
 #if LUAI_BITSINT >= 32
 #define LUAI_MAXSTACK		1000000
 #else
