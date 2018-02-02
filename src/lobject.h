@@ -536,6 +536,8 @@ typedef struct UpVal UpVal;
 ** Closures
 */
 
+// 闭包包含的通用部分
+// CommonHeader作为GC部分的表示，nupvalues是upvalues的数量，类型是unsigned char，为什么也会有*gclist呐？
 #define ClosureHeader \
 	CommonHeader; lu_byte nupvalues; GCObject *gclist
 

@@ -21,7 +21,11 @@
 #include "lstate.h"
 
 
-
+// 创建一个C闭包
+// 首先创建出来一个LUA_TCCL的GC对象，创建完之后会挂在g的gc链表的头部
+// 然后用这个o再进一步构造出具体的CClosure对象，返回的c就是Closure联合体里面的c闭包
+// gco2ccl的定义在lstate.h中，具体的做法就是把o的类型设置为LUA_TCCL
+// 然后就是对upvalues数组的处理啦，刚开始仅仅是设置一下upvalues数组里面的元素个数
 CClosure *luaF_newCclosure (lua_State *L, int n) {
   GCObject *o = luaC_newobj(L, LUA_TCCL, sizeCclosure(n));
   CClosure *c = gco2ccl(o);
@@ -29,7 +33,11 @@ CClosure *luaF_newCclosure (lua_State *L, int n) {
   return c;
 }
 
-
+// 创建一个lua闭包
+// 首先创建出来一个LUA_TLCL的GC对象，创建完成之后挂在g的gc链表的头部
+// 然后用这个o再进一步构造出具体的LClosure对象，返回的l就是Closure联合体里面的l闭包
+// gco2lcl的定义在lstate.h中，具体的做法就是把o的类型设置为LUA_TLCL
+// 然后就是对upvalues数组的处理啦，刚开始仅仅是设置一下upvalues数组里面的元素个数
 LClosure *luaF_newLclosure (lua_State *L, int n) {
   GCObject *o = luaC_newobj(L, LUA_TLCL, sizeLclosure(n));
   LClosure *c = gco2lcl(o);
@@ -96,6 +104,9 @@ void luaF_close (lua_State *L, StkId level) {
 }
 
 
+// 创建一个函数原型
+// 首先通过luaC_newobj创建出一个类型为LUA_TPROTO的gc对象o
+// 然后再转换成proto对象
 Proto *luaF_newproto (lua_State *L) {
   GCObject *o = luaC_newobj(L, LUA_TPROTO, sizeof(Proto));
   Proto *f = gco2p(o);
