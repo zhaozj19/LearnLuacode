@@ -26,7 +26,6 @@
 ** 'tobefnz': all objects ready to be finalized;
 ** 'fixedgc': all objects that are not to be collected (currently
 ** only small strings, such as reserved words).
-
 */
 
 /*
